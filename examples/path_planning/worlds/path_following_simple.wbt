@@ -1,0 +1,189 @@
+#VRML_SIM R2023a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/appearances/protos/Parquetry.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/factory/containers/protos/CardboardBox.proto"
+
+WorldInfo {
+}
+Viewpoint {
+  orientation -0.3006445100952465 -0.24446201829395436 0.9218737441543909 4.455163279707283
+  position 0.637302597163222 2.483452284486432 1.6875279748744476
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  rotation 0 1 0 0
+  floorSize 10 10
+  floorTileSize 1 1
+  floorAppearance Parquetry {
+  }
+  wallHeight 0.5
+}
+DEF ROBOT Robot {
+  translation 0 0 0.0399261
+  children [
+    DEF CASTOR_WHEEL Solid {
+      translation -0.04 0 -0.03
+      scale 0.1 0.1 0.1
+      children [
+        DEF CASTOR Shape {
+          appearance PBRAppearance {
+            baseColor 0.12549 0.290196 0.529412
+            metalness 0
+          }
+          geometry Sphere {
+            radius 0.1
+          }
+        }
+      ]
+      name "CASTOR_WHEEL"
+      boundingObject USE CASTOR
+      physics Physics {
+      }
+    }
+    DEF BODY Shape {
+      appearance PBRAppearance {
+        baseColor 0.917647 0.145098 0.145098
+        roughness 1
+        metalness 0
+      }
+      geometry Box {
+        size 0.1 0.1 0.05
+      }
+    }
+    DEF WHEEL1 HingeJoint {
+      jointParameters HingeJointParameters {
+        axis 0 1 0
+        anchor 0.02 0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "left_wheel"
+        }
+      ]
+      endPoint Solid {
+        translation 0.020000000000000004 0.06 -4.0427227863480704e-26
+        rotation 1 5.826156146237918e-09 -5.82617754694375e-09 1.5707999999999889
+        children [
+          DEF WHEEL Shape {
+            appearance PBRAppearance {
+              baseColor 0.305882 0.898039 0.25098
+              roughness 1
+              metalness 0
+            }
+            geometry Cylinder {
+              height 0.02
+              radius 0.04
+              subdivision 24
+            }
+          }
+        ]
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    DEF WHEEL2 HingeJoint {
+      jointParameters HingeJointParameters {
+        axis 0 1 0
+        anchor 0.02 -0.06 0
+      }
+      device [
+        RotationalMotor {
+          name "right_wheel"
+        }
+      ]
+      endPoint Solid {
+        translation 0.020000000000000004 -0.06 -1.703694378501016e-27
+        rotation 1 2.455273339079186e-10 -2.455282357819487e-10 1.5707999999999982
+        children [
+          USE WHEEL
+        ]
+        name "solid(1)"
+        boundingObject USE WHEEL
+        physics Physics {
+        }
+      }
+    }
+    DEF DS_RIGHT DistanceSensor {
+      translation 0.0492778 -0.0247774 0
+      rotation 0 0 1 -0.3
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0.184314 0.596078 0.847059
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_right"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+      ]
+    }
+    DEF DS_LEFT DistanceSensor {
+      translation 0.0492778 0.0247774 0
+      rotation 0 0 1 0.3
+      children [
+        Shape {
+          appearance PBRAppearance {
+            baseColor 0.184314 0.596078 0.847059
+            roughness 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.01 0.01 0.01
+          }
+        }
+      ]
+      name "ds_left"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+      ]
+      type "sonar"
+    }
+  ]
+  boundingObject USE BODY
+  physics Physics {
+  }
+  controller "robot_supervisor_manager"
+  supervisor TRUE
+}
+DEF TARGET Solid {
+  translation 0.74 -3.83376e-06 0.001
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+        }
+        texture ImageTexture {
+          url [
+            "https://avatars.githubusercontent.com/u/57842071?s=200&v=4"
+          ]
+        }
+      }
+      geometry Plane {
+        size 0.12 0.12
+      }
+    }
+  ]
+  name "target"
+}
+CardboardBox {
+  translation 5.5 0 0.051
+  size 0.1 0.6 0.1
+}
