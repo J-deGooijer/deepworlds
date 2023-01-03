@@ -86,15 +86,21 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.d_min = 0.25  # Minimum distance along the x- or y-axis between the robot and the target. 0.25=25cm
         self.d_max = 1.0  # Maximum distance along the x- or y-axis between the robot and the target. 1.0=100cm
         # The real max distance calculation when target is d_max away in both axes
-        self.real_d_max = np.sqrt(2*(self.d_max * self.d_max))
+        self.real_d_max = np.sqrt(2 * (self.d_max * self.d_max))
 
         self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
         self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target, π/8~22deg
         self.previous_distance = -1.0
         self.previous_angle = -10.0
+        self.is_done_counter = 0
+        self.is_done_limit = 200  # The number of steps robot should be on target before the target moves
+        self.target_found = False
 
         self.keyboard = Keyboard()
         self.keyboard.enable(self.timestep)
+
+        self.get_correct = False
+        self.force_train = False
 
     def get_observations(self):
         """
@@ -128,6 +134,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 r = 10
         elif current_distance < self.on_target_threshold:
             # Close to target but not facing it, no reward regardless of the action
+            # If the robot turns towards the target the decreasing angle reward section below will reward it
             r = 0
         else:
             # Robot is far from the target
@@ -147,14 +154,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Distance is increasing and robot is moving forward
             elif current_distance - self.previous_distance > 0.0001 and action == 0:
                 r = r - 10
+            # Distance is neither increasing nor decreasing
+            else:
+                r = r - 5
         self.previous_distance = current_distance
 
         # Decreasing angle to target reward
         if current_angle - self.previous_angle < -0.001:
             r = r + 0.5
         elif current_angle - self.previous_angle > 0.001:
-            r = r - 2
+            r = r - 10
         self.previous_angle = current_angle
+
+        if self.target_found:
+            r += 1000
+            self.target_found = False
+            print("Target found!")
 
         return r
 
@@ -164,9 +179,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Whether the episode is done
         :rtype: bool
         """
-        # if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
-        #         get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
-        #     self.set_random_target_position()
+        if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
+                get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
+            if self.is_done_counter >= self.is_done_limit:
+                self.set_random_target_position()
+                self.target_found = True
+                self.is_done_counter = 0
+            else:
+                self.is_done_counter += 1
         return False
 
     def reset(self):
@@ -203,18 +223,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :param action:
         :return:
         """
-        key = self.keyboard.getKey()
-        if key in [ord("W"), ord("A"), ord("D"), ord("S")]:
-            action = 3
-            if key == ord("W"):
-                action = 0
-            if key == ord("A"):
-                action = 1
-            if key == ord("D"):
-                action = 2
-            if key == ord("S"):
-                action = 3
-
         if action == 0:  # Move forward
             gas = 1.0
             wheel = 0.0
@@ -238,10 +246,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Apply motor speeds
         self.set_velocity(motor_speeds[0], motor_speeds[1])
-        return action
 
-    def step(self, action):
-        action = self.apply_action(action)
+    def step(self, action, action_prob=None):
+        get_info_dict = self.get_info()
+
+        # Override action with user input
+        if get_info_dict["action"] is not None:
+            action = get_info_dict["action"]
+            action_prob = get_info_dict["action_prob"]
+
+        self.apply_action(action)
         if super(Supervisor, self).step(self.timestep) == -1:
             exit()
 
@@ -249,8 +263,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.get_observations(),
             self.get_reward(action),
             self.is_done(),
-            self.get_info(),
-            action
+            get_info_dict,
+            action,  # Action is returned to be saved in the transition, if overridden it returns user action
+            action_prob
         )
 
     def set_velocity(self, v1, v2):
@@ -281,10 +296,63 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_info(self):
         """
-        Dummy implementation of get_info.
-        :return: Empty dict
+        Get info is hijacked to pass various user keyboard input commands.
+        It serves send a save or load command to the agent in the main loop,
+        or override the agent's action with user input.
+        :return: Dict with various keyboard commands
+        :rtype: dict
         """
-        return {}
+        return_dict = {"save": False, "load": False, "action": None, "action_prob": None}
+        key = self.keyboard.getKey()
+        if key == ord("P"):
+            return_dict["save"] = True
+        elif key == ord("L"):
+            return_dict["load"] = True
+        if key in [ord("W"), ord("A"), ord("D"), ord("S"), ord("H"), ord("F")]:
+            return_dict["action"] = 3
+            if key == ord("W"):
+                return_dict["action"] = 0
+            if key == ord("A"):
+                return_dict["action"] = 1
+            if key == ord("D"):
+                return_dict["action"] = 2
+            if key == ord("S"):
+                return_dict["action"] = 3
+            if key == ord("F"):
+                self.force_train = not self.force_train
+                if self.force_train:
+                    print("Forced training.")
+                else:
+                    print("Stopped forced training.")
+            if key == ord("H"):
+                distance = get_distance_from_target(self.robot, self.target)
+                angle = get_angle_from_target(self.robot, self.target)
+                if angle > 0.01:
+                    return_dict["action"] = 1
+                elif angle < -0.01:
+                    return_dict["action"] = 2
+                else:
+                    return_dict["action"] = 0
+                if distance < self.on_target_threshold and angle < self.facing_target_threshold:
+                    return_dict["action"] = 3
+            return_dict["action_prob"] = 1.0
+
+        if self.force_train:
+            if self.get_correct:
+                distance = get_distance_from_target(self.robot, self.target)
+                angle = get_angle_from_target(self.robot, self.target)
+                if angle > 0.01:
+                    return_dict["action"] = 1
+                elif angle < -0.01:
+                    return_dict["action"] = 2
+                else:
+                    return_dict["action"] = 0
+                if distance < self.on_target_threshold and angle < self.facing_target_threshold:
+                    return_dict["action"] = 3
+                return_dict["action_prob"] = 1.0
+            self.get_correct = not self.get_correct
+
+        return return_dict
 
     def render(self, mode='human'):
         """
