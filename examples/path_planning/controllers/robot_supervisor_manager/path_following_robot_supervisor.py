@@ -90,10 +90,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
         self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target, π/8~22deg
-        self.previous_distance = -1.0
-        self.previous_angle = -10.0
+        self.previous_distance = 0.0
+        self.previous_angle = 0.0
         self.is_done_counter = 0
-        self.is_done_limit = 200  # The number of steps robot should be on target before the target moves
+        self.is_done_limit = 400  # The number of steps robot should be on target before the target moves
         self.target_found = False
 
         self.keyboard = Keyboard()
@@ -125,7 +125,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         current_distance = get_distance_from_target(self.robot, self.target)
         current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)
 
-        # Rewards primarily based on distance to target
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
             # When on target and facing it, action should be "no action"
             if action != 3:
@@ -156,14 +155,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 r = r - 10
             # Distance is neither increasing nor decreasing
             else:
-                r = r - 5
+                r = r - 1
         self.previous_distance = current_distance
 
         # Decreasing angle to target reward
         if current_angle - self.previous_angle < -0.001:
-            r = r + 0.5
+            r = r + 2
         elif current_angle - self.previous_angle > 0.001:
-            r = r - 10
+            r = r - 4
         self.previous_angle = current_angle
 
         if self.target_found:
