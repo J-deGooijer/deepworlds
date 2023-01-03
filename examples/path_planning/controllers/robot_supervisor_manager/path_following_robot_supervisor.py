@@ -89,7 +89,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.real_d_max = np.sqrt(2*(self.d_max * self.d_max))
 
         self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 32  # Threshold on which robot is considered facing the target, π/32~5deg
+        self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target, π/8~22deg
         self.previous_distance = -1.0
         self.previous_angle = -10.0
 
@@ -119,33 +119,33 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         current_distance = get_distance_from_target(self.robot, self.target)
         current_angle = get_angle_from_target(self.robot, self.target)
 
-        if current_distance < self.on_target_threshold and current_angle < np.pi / 16:
-            # When on target and facing it, action should be "no action"
-            if action != 3:
-                r = -1
-            else:
-                r = 10
-        elif current_distance < self.on_target_threshold:
-            # Close to target but not facing it, no reward regardless of the action
-            r = 0
-        else:
-            # Robot is far from the target
-            # Distance is decreasing and robot is moving forward
-            if current_distance - self.previous_distance < -0.0001 and action == 0:
-                # Cumulative reward based on the facing angle
-                if abs(current_angle) < np.pi / 2:
-                    r = r + 1
-                if abs(current_angle) < np.pi / 3:
-                    r = r + 1
-                if abs(current_angle) < np.pi / 4:
-                    r = r + 1
-                if abs(current_angle) < np.pi / 8:
-                    r = r + 1
-                if abs(current_angle) < np.pi / 16:
-                    r = r + 1
-            # Distance is increasing and robot is moving forward
-            elif current_distance - self.previous_distance > 0.0001 and action == 0:
-                r = r - 1
+        # if current_distance < self.on_target_threshold and current_angle < np.pi / 16:
+        #     # When on target and facing it, action should be "no action"
+        #     if action != 3:
+        #         r = -1
+        #     else:
+        #         r = 10
+        # elif current_distance < self.on_target_threshold:
+        #     # Close to target but not facing it, no reward regardless of the action
+        #     r = 0
+        # else:
+        # Robot is far from the target
+        # Distance is decreasing and robot is moving forward
+        if current_distance - self.previous_distance < -0.0001 and action == 0:
+            # Cumulative reward based on the facing angle
+            if abs(current_angle) < np.pi / 2:
+                r = r + 1
+            if abs(current_angle) < np.pi / 3:
+                r = r + 1
+            if abs(current_angle) < np.pi / 4:
+                r = r + 1
+            if abs(current_angle) < np.pi / 8:
+                r = r + 1
+            if abs(current_angle) < np.pi / 16:
+                r = r + 1
+        # Distance is increasing and robot is moving forward
+        elif current_distance - self.previous_distance > 0.0001 and action == 0:
+            r = r - 1
         self.previous_distance = current_distance
 
         # print(f"Distance:{current_distance}, angle:{current_angle}, reward: {r}")
@@ -164,9 +164,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Whether the episode is done
         :rtype: bool
         """
-        # if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
-        #         get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
-        #     self.set_random_target_position()
+        if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
+                get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
+            self.set_random_target_position()
         return False
 
     def reset(self):
@@ -204,7 +204,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return:
         """
         key = self.keyboard.getKey()
-        if key != -1:
+        if key in [ord("W"), ord("A"), ord("D"), ord("S")]:
             action = 3
             if key == ord("W"):
                 action = 0

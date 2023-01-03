@@ -15,14 +15,14 @@ def run():
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
 
     episode_count = 0
-    episode_limit = 2000
+    episode_limit = 1_000_000
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
 
     # Run outer loop until the episodes limit is reached or the task is solved
     while not solved and episode_count < episode_limit:
         state = env.reset()  # Reset robot and get starting observation
-        env.episodeScore = 0
+        env.episode_score = 0
         action_probs = []  # This list holds the probability of each chosen action
 
         # Inner loop is the episode loop
@@ -42,17 +42,17 @@ def run():
             trans = Transition(state, selected_action, action_prob, reward, new_state)
             agent.store_transition(trans)
 
-            env.episodeScore += reward  # Accumulate episode reward
-            if done:
+            env.episode_score += reward  # Accumulate episode reward
+            if done or step == env.steps_per_episode - 1:
                 # Save the episode's score
-                env.episode_score_list.append(env.episodeScore)
+                env.episode_score_list.append(env.episode_score)
                 agent.train_step(batch_size=step + 1)
                 solved = env.solved()  # Check whether the task is solved
                 break
 
             state = new_state  # state for next step is current step's new_state
 
-        print("Episode #", episode_count, "score:", env.episodeScore)
+        print("Episode #", episode_count, "score:", env.episode_score)
         # The average action probability tells us how confident the agent was of its actions.
         # By looking at this we can check whether the agent is converging to a certain policy.
         avg_action_prob = mean(action_probs)
@@ -63,9 +63,9 @@ def run():
 
     # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
     moving_avg_n = 10
-    plotData(convolve(env.episodeScoreList, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
+    plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
              "episode", "episode score", "Episode scores over episodes")
-    plotData(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
+    plot_data(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
              "episode", "average episode action probability", "Average episode action probability over episodes")
 
     if not solved:
@@ -74,13 +74,13 @@ def run():
         print("Task is solved, deploying agent for testing...")
 
     state = env.reset()
-    env.episodeScore = 0
+    env.episode_score = 0
     while True:
         selected_action, action_prob = agent.work(state, type_="selectActionMax")
-        state, reward, done, _ = env.step([selected_action])
-        env.episodeScore += reward  # Accumulate episode reward
+        state, reward, done, _, _ = env.step(selected_action)
+        env.episode_score += reward  # Accumulate episode reward
 
         if done:
-            print("Reward accumulated =", env.episodeScore)
-            env.episodeScore = 0
+            print("Reward accumulated =", env.episode_score)
+            env.episode_score = 0
             state = env.reset()

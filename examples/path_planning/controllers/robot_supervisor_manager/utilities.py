@@ -53,7 +53,7 @@ def plot_data(data, x_label, y_label, plot_title, save=False, save_name=None):
     """
     fig, ax = plt.subplots()
     ax.plot(data)
-    ax.set(x_label=x_label, y_label=y_label,
+    ax.set(xlabel=x_label, ylabel=y_label,
            title=plot_title)
     ax.grid()
     if save:
