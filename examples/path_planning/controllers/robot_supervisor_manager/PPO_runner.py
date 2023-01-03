@@ -36,7 +36,13 @@ def run():
 
             # Step the supervisor to get the current selected_action reward, the new state and whether we reached the
             # done condition
-            new_state, reward, done, info, selected_action = env.step(selected_action)
+            new_state, reward, done, info, selected_action, action_prob = env.step(selected_action, action_prob)
+            if info["save"]:
+                agent.save("./manually_saved")
+                print("Saved agent.")
+            if info["load"]:
+                agent.load("./manually_saved")
+                print("Loaded agent.")
             # print(f"new state: {new_state} - reward: {reward}")
             # Save the current state transition in agent's memory
             trans = Transition(state, selected_action, action_prob, reward, new_state)
