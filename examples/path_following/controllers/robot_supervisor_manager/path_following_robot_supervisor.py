@@ -178,14 +178,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Whether the episode is done
         :rtype: bool
         """
+        # If robot is on target and facing it
         if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
                 get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
+            # Count to limit
             if self.is_done_counter >= self.is_done_limit:
                 self.set_random_target_position()
                 self.target_found = True
                 self.is_done_counter = 0
             else:
                 self.is_done_counter += 1
+        # If either distance or angle becomes larger than thresholds, reset counter
+        if get_distance_from_target(self.robot, self.target) > self.on_target_threshold or \
+                get_angle_from_target(self.robot, self.target) > self.facing_target_threshold:
+            self.is_done_counter = 0
         return False
 
     def reset(self):
