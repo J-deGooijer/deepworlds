@@ -140,16 +140,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Distance is decreasing and robot is moving forward
             if current_distance - self.previous_distance < -0.0001 and action == 0:
                 # Cumulative reward based on the facing angle
-                if current_angle < np.pi / 2:
-                    r = r + 1
-                if current_angle < np.pi / 3:
-                    r = r + 1
-                if current_angle < np.pi / 4:
-                    r = r + 1
-                if current_angle < np.pi / 8:
-                    r = r + 1
+                # if current_angle < np.pi / 2:
+                #     r = r + 1
+                # if current_angle < np.pi / 3:
+                #     r = r + 1
+                # if current_angle < np.pi / 4:
+                #     r = r + 1
+                # if current_angle < np.pi / 8:
+                #     r = r + 1
                 if current_angle < np.pi / 16:
-                    r = r + 1
+                    r = r + 3
             # Distance is increasing and robot is moving forward
             elif current_distance - self.previous_distance > 0.0001 and action == 0:
                 r = r - 10
