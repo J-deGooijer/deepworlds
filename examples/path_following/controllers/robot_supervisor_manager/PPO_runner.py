@@ -58,7 +58,7 @@ def run():
                 if (episode_count + 1) % episodes_per_checkpoint == 0:
                     if not os.path.exists("./checkpoints"):
                         os.mkdir("./checkpoints")
-                    agent.save(f"./checkpoints/checkpoint_{episode_count + 1}_")
+                    agent.save(f"./checkpoints/checkpoint_{episode_count + 1}")
                 break
 
             state = new_state  # state for next step is current step's new_state
