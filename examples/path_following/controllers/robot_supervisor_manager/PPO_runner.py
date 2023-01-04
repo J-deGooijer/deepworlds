@@ -1,5 +1,5 @@
 from numpy import convolve, ones, mean
-
+import os
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
 from agent.PPO_agent import PPOAgent, Transition
 from utilities import plot_data
@@ -16,6 +16,7 @@ def run():
 
     episode_count = 0
     episode_limit = 1_000_000
+    episodes_per_checkpoint = 2
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
 
@@ -54,11 +55,15 @@ def run():
                 env.episode_score_list.append(env.episode_score)
                 agent.train_step(batch_size=step + 1)
                 solved = env.solved()  # Check whether the task is solved
+                if (episode_count + 1) % episodes_per_checkpoint == 0:
+                    if not os.path.exists("./checkpoints"):
+                        os.mkdir("./checkpoints")
+                    agent.save(f"./checkpoints/checkpoint_{episode_count + 1}_")
                 break
 
             state = new_state  # state for next step is current step's new_state
 
-        print("Episode #", episode_count, "score:", env.episode_score)
+        print("Episode #", episode_count + 1, "score:", env.episode_score)
         # The average action probability tells us how confident the agent was of its actions.
         # By looking at this we can check whether the agent is converging to a certain policy.
         avg_action_prob = mean(action_probs)
