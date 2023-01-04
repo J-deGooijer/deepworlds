@@ -180,7 +180,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         # If robot is on target and facing it
         if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
-                get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
+                get_angle_from_target(self.robot, self.target, is_abs=True) < self.facing_target_threshold:
             # Count to limit
             if self.on_target_counter >= self.on_target_limit:
                 self.set_random_target_position()
@@ -190,7 +190,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.on_target_counter += 1
         # If either distance or angle becomes larger than thresholds, reset counter
         if get_distance_from_target(self.robot, self.target) > self.on_target_threshold or \
-                get_angle_from_target(self.robot, self.target) > self.facing_target_threshold:
+                get_angle_from_target(self.robot, self.target, is_abs=True) > self.facing_target_threshold:
             self.on_target_counter = 0
         return False
 
