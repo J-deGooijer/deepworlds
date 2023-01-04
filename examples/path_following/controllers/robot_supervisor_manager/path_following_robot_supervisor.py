@@ -92,8 +92,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target, π/8~22deg
         self.previous_distance = 0.0
         self.previous_angle = 0.0
-        self.is_done_counter = 0
-        self.is_done_limit = 400  # The number of steps robot should be on target before the target moves
+        self.on_target_counter = 0
+        self.on_target_limit = 400  # The number of steps robot should be on target before the target moves
         self.target_found = False
 
         self.keyboard = Keyboard()
@@ -182,16 +182,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
                 get_angle_from_target(self.robot, self.target) < self.facing_target_threshold:
             # Count to limit
-            if self.is_done_counter >= self.is_done_limit:
+            if self.on_target_counter >= self.on_target_limit:
                 self.set_random_target_position()
                 self.target_found = True
-                self.is_done_counter = 0
+                self.on_target_counter = 0
             else:
-                self.is_done_counter += 1
+                self.on_target_counter += 1
         # If either distance or angle becomes larger than thresholds, reset counter
         if get_distance_from_target(self.robot, self.target) > self.on_target_threshold or \
                 get_angle_from_target(self.robot, self.target) > self.facing_target_threshold:
-            self.is_done_counter = 0
+            self.on_target_counter = 0
         return False
 
     def reset(self):
