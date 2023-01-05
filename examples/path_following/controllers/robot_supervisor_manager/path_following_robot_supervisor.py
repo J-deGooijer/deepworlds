@@ -88,8 +88,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # The real max distance calculation when target is d_max away in both axes
         self.real_d_max = np.sqrt(2 * (self.d_max * self.d_max))
 
-        self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target, π/8~22deg
+        self.on_target_threshold = 0.05  # Threshold that defines whether robot is considered "on target"
+        self.facing_target_threshold = np.pi / 32  # Threshold on which robot is considered facing the target, π/32~5deg
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.on_target_counter = 0
@@ -140,15 +140,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Distance is decreasing and robot is moving forward
             if current_distance - self.previous_distance < -0.0001 and action == 0:
                 # Cumulative reward based on the facing angle
-                # if current_angle < np.pi / 2:
-                #     r = r + 1
-                # if current_angle < np.pi / 3:
-                #     r = r + 1
-                # if current_angle < np.pi / 4:
-                #     r = r + 1
-                # if current_angle < np.pi / 8:
-                #     r = r + 1
-                if current_angle < np.pi / 16:
+                if current_angle < self.facing_target_threshold:
                     r = r + 3
             # Distance is increasing and robot is moving forward
             elif current_distance - self.previous_distance > 0.0001 and action == 0:
