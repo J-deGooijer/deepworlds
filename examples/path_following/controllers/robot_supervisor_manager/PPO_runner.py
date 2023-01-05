@@ -3,7 +3,6 @@ import os
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
 from agent.PPO_agent import PPOAgent, Transition
 from utilities import plot_data
-from random import uniform
 
 
 def run():
@@ -72,12 +71,15 @@ def run():
 
         episode_count += 1  # Increment episode counter
 
-    # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
-    moving_avg_n = 10
-    plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-             "episode", "episode score", "Episode scores over episodes")
-    plot_data(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-             "episode", "average episode action probability", "Average episode action probability over episodes")
+    try:
+        # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
+        moving_avg_n = 10
+        plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
+                 "episode", "episode score", "Episode scores over episodes")
+        plot_data(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
+                 "episode", "average episode action probability", "Average episode action probability over episodes")
+    except Exception as e:
+        print("Plotting failed:", e)
 
     if not solved:
         print("Reached episode limit and task was not solved, deploying agent for testing...")
@@ -88,7 +90,7 @@ def run():
     env.episode_score = 0
     while True:
         selected_action, action_prob = agent.work(state, type_="selectActionMax")
-        state, reward, done, _, _ = env.step(selected_action)
+        state, reward, done, _, _, _ = env.step(selected_action)
         env.episode_score += reward  # Accumulate episode reward
 
         if done:
