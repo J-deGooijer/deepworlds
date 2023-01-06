@@ -5,12 +5,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/appearances/protos/Parquetry.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/factory/containers/protos/CardboardBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/chairs/protos/WoodenChair.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.3006445100952465 -0.24446201829395436 0.9218737441543909 4.455163279707283
-  position 0.637302597163222 2.483452284486432 1.6875279748744476
+  orientation 0.011543883175480902 -0.9999230464329063 0.0045431237675012245 4.6643240189671555
+  position 0.7713688512155992 -0.12005334548594844 9.55738441446393
 }
 TexturedBackground {
 }
@@ -67,8 +68,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 0.06 -4.0427227863480704e-26
-        rotation 1 5.826156146237918e-09 -5.82617754694375e-09 1.5707999999999889
+        translation 0.020000000000000004 0.06 1.0093995695757107e-19
+        rotation 1 5.826156311331979e-09 -5.826177075766609e-09 1.5707999999999882
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -99,8 +100,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 -0.06 -1.703694378501016e-27
-        rotation 1 2.455273339079186e-10 -2.455282357819487e-10 1.5707999999999982
+        translation 0.020000000000000004 -0.06 1.1160006632069383e-18
+        rotation 1 2.455282918651195e-10 -2.455285273785557e-10 1.570799999999996
         children [
           USE WHEEL
         ]
@@ -110,31 +111,30 @@ DEF ROBOT Robot {
         }
       }
     }
-    DEF DS_RIGHT DistanceSensor {
-      translation 0.0492778 -0.0247774 0
-      rotation 0 0 1 -0.3
-      children [
-        Shape {
-          appearance PBRAppearance {
-            baseColor 0.184314 0.596078 0.847059
-            roughness 1
-            metalness 0
-          }
-          geometry Box {
-            size 0.01 0.01 0.01
-          }
-        }
-      ]
-      name "ds_right"
+    DistanceSensor {
+      translation 0.05 0 0
+      rotation 0 0 1 1.0471996938995747
+      name "ds_outer_left"
       lookupTable [
         0.02 0 0
         0.1 10 0
         0.5 50 0
+        2.55 255 0
       ]
     }
-    DEF DS_LEFT DistanceSensor {
-      translation 0.0492778 0.0247774 0
-      rotation 0 0 1 0.3
+    DistanceSensor {
+      translation 0.05 0 0
+      rotation 0 0 1 0.5235996938995747
+      name "ds_inner_left"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+        2.55 255 0
+      ]
+    }
+    DistanceSensor {
+      translation 0.05 0 0
       children [
         Shape {
           appearance PBRAppearance {
@@ -147,13 +147,35 @@ DEF ROBOT Robot {
           }
         }
       ]
-      name "ds_left"
+      name "ds_center"
       lookupTable [
         0.02 0 0
         0.1 10 0
         0.5 50 0
+        2.55 255 0
       ]
-      type "sonar"
+    }
+    DistanceSensor {
+      translation 0.05 0 0
+      rotation 0 0 1 -0.5235996938995747
+      name "ds_inner_right"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+        2.55 255 0
+      ]
+    }
+    DistanceSensor {
+      translation 0.05 0 0
+      rotation 0 0 1 -1.0472003061004251
+      name "ds_outer_right"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+        2.55 255 0
+      ]
     }
   ]
   boundingObject USE BODY
@@ -183,7 +205,41 @@ DEF TARGET Solid {
   ]
   name "target"
 }
-CardboardBox {
+DEF CBL1 CardboardBox {
   translation 5.5 0 0.051
+  name "cardboard box long 1"
   size 0.1 0.6 0.1
+}
+DEF CBL2 CardboardBox {
+  translation 5.62 0 0.051
+  name "cardboard box long 2"
+  size 0.1 0.6 0.1
+}
+DEF CBL3 CardboardBox {
+  translation 5.74 0 0.051
+  name "cardboard box long 3"
+  size 0.1 0.6 0.1
+}
+DEF CBL4 CardboardBox {
+  translation 5.86 0 0.051
+  name "cardboard box long 4"
+  size 0.1 0.6 0.1
+}
+DEF CB1 CardboardBox {
+  translation 5.61 0.86 0.051
+  name "cardboard box 1"
+  size 0.1 0.1 0.1
+}
+DEF CB2 CardboardBox {
+  translation 5.5 0.86 0.051
+  name "cardboard box 2"
+  size 0.1 0.1 0.1
+}
+DEF C1 WoodenChair {
+  translation 6.46 0 0
+  name "wooden chair 1"
+}
+DEF C2 WoodenChair {
+  translation 6.46 0.87 0
+  name "wooden chair 2"
 }
