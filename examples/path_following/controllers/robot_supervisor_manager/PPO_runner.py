@@ -28,22 +28,14 @@ def run():
         # Inner loop is the episode loop
         for step in range(env.steps_per_episode):
             # In training mode the agent samples from the probability distribution, naturally implementing exploration
-            # print(f"State: {state}", end=' - ')
             selected_action, action_prob = agent.work(state, type_="selectAction")
-            # print(f"action: {selected_action}", end=' - ')
             # Save the current selected_action's probability
             action_probs.append(action_prob)
 
             # Step the supervisor to get the current selected_action reward, the new state and whether we reached the
             # done condition
-            new_state, reward, done, info, selected_action, action_prob = env.step(selected_action, action_prob)
-            if info["save"]:
-                agent.save("./manually_saved")
-                print("Saved agent.")
-            if info["load"]:
-                agent.load("./manually_saved")
-                print("Loaded agent.")
-            # print(f"new state: {new_state} - reward: {reward}")
+            new_state, reward, done, info = env.step(selected_action)
+
             # Save the current state transition in agent's memory
             trans = Transition(state, selected_action, action_prob, reward, new_state)
             agent.store_transition(trans)
@@ -54,6 +46,8 @@ def run():
                 env.episode_score_list.append(env.episode_score)
                 agent.train_step(batch_size=step + 1)
                 solved = env.solved()  # Check whether the task is solved
+
+                # Save agent
                 if (episode_count + 1) % episodes_per_checkpoint == 0:
                     if not os.path.exists("./checkpoints"):
                         os.mkdir("./checkpoints")
@@ -90,7 +84,7 @@ def run():
     env.episode_score = 0
     while True:
         selected_action, action_prob = agent.work(state, type_="selectActionMax")
-        state, reward, done, _, _, _ = env.step(selected_action)
+        state, reward, done, _ = env.step(selected_action)
         env.episode_score += reward  # Accumulate episode reward
 
         if done:
