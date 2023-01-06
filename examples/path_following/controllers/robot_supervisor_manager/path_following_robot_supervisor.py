@@ -217,8 +217,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             (1000 + self.on_target_limit * 10) \
             / 2
 
-        if len(self.episode_score_list) > 10:  # Over 10 episodes thus far
-            if np.mean(self.episode_score_list[-100:]) > avg_score_limit:  # Last 10 episode scores average value
+        if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
+            if np.mean(self.episode_score_list[-10:]) > avg_score_limit:  # Last 10 episode scores average value
                 return True
         return False
 
