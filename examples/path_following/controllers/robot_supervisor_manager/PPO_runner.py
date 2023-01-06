@@ -10,7 +10,7 @@ def run():
     env = PathFollowingRobotSupervisor()
 
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
-    # We pass 4 as numberOfInputs and 2 as numberOfOutputs, taken from the gym spaces
+    # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
 
     episode_count = 0
