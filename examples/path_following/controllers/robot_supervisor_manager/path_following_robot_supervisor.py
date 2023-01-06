@@ -47,8 +47,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         super().__init__()
         # Set up gym spaces
-        self.observation_space = Box(low=np.array([0.0, -1.0]),
-                                     high=np.array([1.0, 1.0]),
+        self.observation_space = Box(low=np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                                     high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
                                      dtype=np.float64)
         self.action_space = Discrete(4)
 
@@ -60,14 +60,24 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         #     self.camera.enable(self.timestep)  # NOQA
         # except AttributeError:
         #     print("No camera found.")
-
+        self.distance_sensors = []
         try:
-            self.left_distance_sensor = self.getDevice("ds_left")
-            self.left_distance_sensor.enable(self.timestep)  # NOQA
-            self.right_distance_sensor = self.getDevice("ds_right")
-            self.right_distance_sensor.enable(self.timestep)  # NOQA
+            for ds_name in ["outer_left", "inner_left", "center", "inner_right", "outer_right"]:
+                self.distance_sensors.append(self.getDevice("ds_" + ds_name))
+                self.distance_sensors[-1].enable(self.timestep)  # NOQA
+
         except AttributeError:
             print("No distance sensors found.")
+
+        # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
+        # this loop grabs the first distance sensor child of the robot and gets the max value it can output
+        # from its lookup table.
+        self.ds_max = -1
+        for childNodeIndex in range(self.robot.getField("children").getCount()):
+            child = self.robot.getField("children").getMFNode(childNodeIndex)  # NOQA
+            if child.getTypeName() == "DistanceSensor":
+                self.ds_max = child.getField("lookupTable").getMFVec3f(-1)[1]
+                break
 
         self.left_motor = self.getDevice("left_wheel")
         self.right_motor = self.getDevice("right_wheel")
@@ -95,17 +105,34 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_observations(self):
         """
-        TODO docstring
-        :return:
+        This method returns the observation vector of the agent.
+        It consists of the distance and angle to the target, as well as the 5 distance sensor values.
+        All values are normalized in their respective ranges:
+        - Distance is normalized to [0.0, 1.0]
+        - Angle is normalized to [-1.0, 1.0]
+        - Distance sensor values are normalized to [1.0, 0.0].
+          This is done so the input gets a large activation value when the sensor returns
+          small values, i.e. an obstacle is close.
+
+        :return: Observation vector
+        :rtype: list
         """
         # Target distance
         tar_d = get_distance_from_target(self.robot, self.target)
-        tar_d = round(normalize_to_range(tar_d, 0.0, self.real_d_max, 0.0, 1.0), 2)
+        tar_d = round(normalize_to_range(tar_d, 0.0, self.real_d_max, 0.0, 1.0, clip=True), 2)
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
-        tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0), 2)
-        # TODO Add distance sensor observations
-        return [tar_d, tar_a]
+        tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 2)
+        obs = [tar_d, tar_a]
+
+        # Add distance sensor values
+        ds_values = []
+        for ds in self.distance_sensors:
+            ds_values.append(ds.getValue())  # NOQA
+            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0, clip=True), 2)
+        obs.extend(ds_values)
+
+        return obs
 
     def get_reward(self, action):
         """
