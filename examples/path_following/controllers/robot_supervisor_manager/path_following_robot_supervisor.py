@@ -1,7 +1,8 @@
-from deepbots.supervisor import RobotSupervisorEnv
-from gym.spaces import Box, Discrete
+import random
+from warnings import warn
 import numpy as np
-from random import uniform
+from gym.spaces import Box, Discrete
+from deepbots.supervisor import RobotSupervisorEnv
 from utilities import normalize_to_range, get_distance_from_target, get_angle_from_target
 
 
@@ -67,7 +68,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.distance_sensors[-1].enable(self.timestep)  # NOQA
 
         except AttributeError:
-            print("No distance sensors found.")
+            warn("\nNo distance sensors initialized.\n ")
+
+        self.touch_sensor = self.getDevice("touch sensor")
+        self.touch_sensor.enable(self.timestep)  # NOQA
 
         # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
         # this loop grabs the first distance sensor child of the robot and gets the max value it can output
@@ -102,6 +106,30 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_angle = 0.0
         self.on_target_counter = 0
         self.on_target_limit = 400  # The number of steps robot should be on target before the target moves
+        self.trigger_done = False
+
+        # Map
+        width, height = 7, 7
+        cell_size = [0.5, 0.5]
+        # Center map to (0, 0)
+        origin = [-(width // 2) * cell_size[0], (height // 2) * cell_size[1]]
+        self.map = Grid(width, height, origin, cell_size)
+
+        # Obstacle references
+        self.all_obstacles = []
+        for childNodeIndex in range(self.getFromDef("OBSTACLES").getField("children").getCount()):
+            child = self.getFromDef("OBSTACLES").getField("children").getMFNode(childNodeIndex)  # NOQA
+            self.all_obstacles.append(child)
+
+        self.number_of_obstacles = 0  # The number of obstacles to use
+        if self.number_of_obstacles > len(self.all_obstacles):
+            warn(f"\n \nNumber of obstacles set is greater than the number of obstacles that exist in the "
+                 f"world ({self.number_of_obstacles} > {len(self.all_obstacles)}).\n"
+                 f"Number of obstacles is set to {len(self.all_obstacles)}.\n ")
+            self.number_of_obstacles = len(self.all_obstacles)
+
+        self.path_to_target = None
+        self.max_path_length = 1  # The maximum path length allowed
 
     def get_observations(self):
         """
@@ -131,7 +159,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             ds_values.append(ds.getValue())  # NOQA
             ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0, clip=True), 2)
         obs.extend(ds_values)
-
         return obs
 
     def get_reward(self, action):
@@ -184,7 +211,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Count to limit
             if self.on_target_counter >= self.on_target_limit:
                 # Robot is on target for a number of steps so reward it and reset target to a new position
-                self.set_random_target_position()
+                self.trigger_done = True
                 r += 1000
                 self.on_target_counter = 0
             else:
@@ -194,32 +221,48 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 get_angle_from_target(self.robot, self.target, is_abs=True) > self.facing_target_threshold:
             self.on_target_counter = 0
 
+        # Check if the robot has collided with anything
+        if self.touch_sensor.getValue() == 1.0:  # NOQA
+            self.trigger_done = True
+            r = -1000
+
         return r
 
     def is_done(self):
         """
         Episode is done when the maximum number of steps per episode is reached, which is handled by the RL training
-        loop, or when the robot hits an obstacle.
+        loop, or when the robot detects an obstacle at a 0 distance from one of its sensors.
         :return: Whether the episode is done
         :rtype: bool
         """
-        # TODO Add collision detection with obstacle to terminate episode
+        if self.trigger_done:
+            self.trigger_done = False
+            return True
         return False
 
     def reset(self):
         """
         Resets the simulation using deepbots default reset and re-initializes robot and target positions.
         """
-        return_val = super().reset()
+        starting_obs = super().reset()
+        # Reset path
+        self.path_to_target = None
 
         # Set robot random rotation
-        self.robot.getField("rotation").setSFRotation([0.0, 0.0, 1.0, uniform(-np.pi, np.pi)])
-        # Set random target
-        self.set_random_target_position()
+        self.robot.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
 
-        # TODO randomize obstacles
+        # Randomize obstacles and target
+        randomization_successful = False
+        while not randomization_successful:
+            # Randomize robot and obstacle positions
+            self.randomize_map()
+            # Set the target in a valid position and find a path to it
+            # and repeat until a reachable position has been found for the target
+            self.path_to_target = self.get_random_path()
+            if self.path_to_target is not None:
+                randomization_successful = True
 
-        return return_val
+        return starting_obs
 
     def solved(self):
         """
@@ -241,8 +284,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :rtype: bool
         """
         avg_score_limit = (self.steps_per_episode // self.on_target_limit) * \
-            (1000 + self.on_target_limit * 10) \
-            / 2
+                          (1000 + self.on_target_limit * 10) \
+                          / 2
 
         if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
             if np.mean(self.episode_score_list[-10:]) > avg_score_limit:  # Last 10 episode scores average value
@@ -311,22 +354,25 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def get_distances(self):
         return self.left_distance_sensor.getValue(), self.right_distance_sensor.getValue()  # NOQA
 
-    def set_random_target_position(self):
+    def randomize_map(self):
         """
-        Sets the target position at a random position around the robot.
-        With (0, 0) being the robot, the target can be no closer than d_min in both x and y,
-        and no farther than d_max in both x and y.
+        TODO docstring
         """
-        robot_position = self.robot.getPosition()
-        min_max_diff = self.d_max - self.d_min
-        random_x = uniform(-min_max_diff + robot_position[0], min_max_diff + robot_position[0])
-        random_y = uniform(-min_max_diff + robot_position[1], min_max_diff + robot_position[1])
-        random_x = random_x + np.sign(random_x) * self.d_min
-        random_y = random_y + np.sign(random_y) * self.d_min
-        self.target_position = [round(random_x, 2), round(random_y, 2)]
+        self.map.empty()
+        self.map.insert_random(self.robot)  # Add robot in a random position
+        for node in random.sample(self.all_obstacles, self.number_of_obstacles):
+            self.map.insert_random(node)
+            node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
 
-        self.target.getField("translation").setSFVec3f([self.target_position[0], self.target_position[1],
-                                                        self.target.getPosition()[2]])
+    def get_random_path(self):
+        """
+        TODO docstring
+        """
+        robot_coordinates = self.map.find_by_name("robot")
+        if not self.map.insert_near(robot_coordinates[0], robot_coordinates[1],
+                                    self.target, max_distance=self.max_path_length):
+            return None  # Need to re-randomize obstacles as insert_near failed
+        return self.map.bfs_path(robot_coordinates, self.map.find_by_name("target"))
 
     def get_info(self):
         """
@@ -342,3 +388,101 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return:
         """
         print("render() is not used")
+
+
+class Grid:
+    """
+    Partially coded by OpenAI's ChatGPT.
+    """
+
+    def __init__(self, width, height, origin, cell_size):
+        self.grid = [[None for _ in range(width)] for _ in range(height)]
+        self.origin = origin
+        self.cell_size = cell_size
+
+    def size(self):
+        return len(self.grid[0]), len(self.grid)
+
+    def set_cell(self, x, y, node):
+        if self.grid[y][x] is None:
+            self.grid[y][x] = node
+            node.getField("translation").setSFVec3f(
+                [self.get_world_coordinates(x, y)[0], self.get_world_coordinates(x, y)[1], node.getPosition()[2]])
+            return True
+        return False
+
+    def remove_cell(self, x, y):
+        self.grid[y][x] = None
+
+    def empty(self):
+        self.grid = [[None for _ in range(len(self.grid[0]))] for _ in range(len(self.grid))]
+
+    def insert_random(self, node):
+        x = random.randint(0, len(self.grid[0]) - 1)
+        y = random.randint(0, len(self.grid) - 1)
+        if self.grid[y][x] is None:
+            return self.set_cell(x, y, node)
+        else:
+            self.insert_random(node)
+
+    def insert_near(self, x, y, node, max_distance=1):
+        try:
+            how_near = random.randrange(1, max_distance + 1)
+            near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
+                           (x + how_near, y + how_near), (x - how_near, y - how_near),
+                           (x - how_near, y + how_near), (x + how_near, y - how_near)]
+            coords = random.choice(near_coords)
+            # Make sure the random selection is in range
+            # Re-randomize everything to make it faster in edge cases
+            while not self.is_in_range(coords[0], coords[1]):
+                how_near = random.randrange(1, max_distance + 1)
+                near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
+                               (x + how_near, y + how_near), (x - how_near, y - how_near),
+                               (x - how_near, y + how_near), (x + how_near, y - how_near)]
+                coords = random.choice(near_coords)
+
+            if self.set_cell(coords[0], coords[1], node):
+                pass
+            else:
+                self.insert_near(x, y, node)
+            return True
+        except RecursionError:
+            print("insert_near reached recursion limit error.")
+            return False
+
+    def get_world_coordinates(self, x, y):
+        world_x = self.origin[0] + x * self.cell_size[0]
+        world_y = self.origin[1] - y * self.cell_size[1]
+        return world_x, world_y
+
+    def find_by_name(self, name):
+        for y in range(len(self.grid)):
+            for x in range(len(self.grid[0])):
+                if self.grid[y][x] and self.grid[y][x].getField("name").getSFString() == name:  # NOQA
+                    return x, y
+        return None
+
+    def is_in_range(self, x, y):
+        if (0 <= x < len(self.grid[0])) and (0 <= y < len(self.grid)):
+            return True
+        return False
+
+    def bfs_path(self, start, goal):
+        start = tuple(start)
+        goal = tuple(goal)
+        queue = [(start, [start])]  # (coordinates, path)
+        visited = set()
+        visited.add(start)
+        while queue:
+            coords, path = queue.pop(0)
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1),
+                           (1, 1), (-1, -1), (1, -1), (-1, 1)]:  # neighbors
+                x, y = coords
+                x2, y2 = x + dx, y + dy
+                if self.is_in_range(x2, y2) and (x2, y2) not in visited:
+                    if self.grid[y2][x2] is not None and (x2, y2) == goal:
+                        return path + [(x2, y2)]
+                    elif self.grid[y2][x2] is None:
+                        visited.add((x2, y2))
+                        queue.append(((x2, y2), path + [(x2, y2)]))
+        return None
