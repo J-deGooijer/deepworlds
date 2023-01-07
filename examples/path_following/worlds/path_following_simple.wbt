@@ -6,12 +6,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/appearances/protos/Parquetry.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/factory/containers/protos/CardboardBox.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/chairs/protos/WoodenChair.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/projects/objects/kitchen/breakfast/protos/JamJar.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.011543883175480902 -0.9999230464329063 0.0045431237675012245 4.6643240189671555
-  position 0.7713688512155992 -0.12005334548594844 9.55738441446393
+  orientation 0.5835008536471271 -0.5869697853692554 -0.5612425722062112 4.1689688559018325
+  position -0.07707683162561418 0.1846498278626909 11.327625903497553
 }
 TexturedBackground {
 }
@@ -68,8 +69,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 0.06 1.0093995695757107e-19
-        rotation 1 5.826156311331979e-09 -5.826177075766609e-09 1.5707999999999882
+        translation 0.020000000000000004 0.06 -1.2287559033523478e-18
+        rotation 1 5.2473510618970815e-09 -5.247370315120496e-09 1.5707999999999822
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -100,8 +101,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 -0.06 1.1160006632069383e-18
-        rotation 1 2.455282918651195e-10 -2.455285273785557e-10 1.570799999999996
+        translation 0.020000000000000004 -0.06 1.8205593198219035e-18
+        rotation 1 -3.131400779297683e-10 3.1314188353277964e-10 1.5707999999999909
         children [
           USE WHEEL
         ]
@@ -177,6 +178,12 @@ DEF ROBOT Robot {
         2.55 255 0
       ]
     }
+    TouchSensor {
+      translation 0.005 0 0
+      boundingObject Box {
+        size 0.115 0.15 0.05
+      }
+    }
   ]
   boundingObject USE BODY
   physics Physics {
@@ -205,41 +212,99 @@ DEF TARGET Solid {
   ]
   name "target"
 }
-DEF CBL1 CardboardBox {
-  translation 5.5 0 0.051
-  name "cardboard box long 1"
-  size 0.1 0.6 0.1
-}
-DEF CBL2 CardboardBox {
-  translation 5.62 0 0.051
-  name "cardboard box long 2"
-  size 0.1 0.6 0.1
-}
-DEF CBL3 CardboardBox {
-  translation 5.74 0 0.051
-  name "cardboard box long 3"
-  size 0.1 0.6 0.1
-}
-DEF CBL4 CardboardBox {
-  translation 5.86 0 0.051
-  name "cardboard box long 4"
-  size 0.1 0.6 0.1
-}
-DEF CB1 CardboardBox {
-  translation 5.61 0.86 0.051
-  name "cardboard box 1"
-  size 0.1 0.1 0.1
-}
-DEF CB2 CardboardBox {
-  translation 5.5 0.86 0.051
-  name "cardboard box 2"
-  size 0.1 0.1 0.1
-}
-DEF C1 WoodenChair {
-  translation 6.46 0 0
-  name "wooden chair 1"
-}
-DEF C2 WoodenChair {
-  translation 6.46 0.87 0
-  name "wooden chair 2"
+DEF OBSTACLES Transform {
+  children [
+    DEF OBSTACLE_CBL1 CardboardBox {
+      translation 5.5 0 0.051
+      name "cardboard box long 1"
+      size 0.1 0.4 0.1
+    }
+    DEF OBSTACLE_CBL2 CardboardBox {
+      translation 5.62 0 0.051
+      name "cardboard box long 2"
+      size 0.1 0.4 0.1
+    }
+    DEF OBSTACLE_CBL3 CardboardBox {
+      translation 5.74 0 0.051
+      name "cardboard box long 3"
+      size 0.1 0.4 0.1
+    }
+    DEF OBSTACLE_CBL4 CardboardBox {
+      translation 5.86 0 0.051
+      name "cardboard box long 4"
+      size 0.1 0.4 0.1
+    }
+    DEF OBSTACLE_CB1 CardboardBox {
+      translation 5.5 0.29 0.051
+      name "cardboard box 1"
+      size 0.1 0.1 0.1
+    }
+    DEF OBSTACLE_CB2 CardboardBox {
+      translation 5.62 0.29 0.051
+      name "cardboard box 2"
+      size 0.1 0.1 0.1
+    }
+    DEF OBSTACLE_CB3 CardboardBox {
+      translation 5.74 0.29 0.051
+      name "cardboard box 3"
+      size 0.1 0.1 0.1
+    }
+    DEF OBSTACLE_CB4 CardboardBox {
+      translation 5.86 0.29 0.051
+      name "cardboard box 4"
+      size 0.1 0.1 0.1
+    }
+    DEF OBSTACLE_CBLA1 CardboardBox {
+      translation 5.86 0.68 0.051
+      name "cardboard box large 1"
+      size 0.4 0.4 0.1
+    }
+    DEF OBSTACLE_CBLA2 CardboardBox {
+      translation 5.86 1.13 0.051
+      name "cardboard box large 2"
+      size 0.4 0.4 0.1
+    }
+    DEF OBSTACLE_CBLA3 CardboardBox {
+      translation 5.86 1.59 0.051
+      name "cardboard box large 3"
+      size 0.4 0.4 0.1
+    }
+    DEF OBSTACLE_CBLA4 CardboardBox {
+      translation 5.86 2.06 0.051
+      name "cardboard box large 4"
+      size 0.4 0.4 0.1
+    }
+    DEF OBSTACLE_C1 WoodenChair {
+      translation 6.46 0 0
+      name "wooden chair 1"
+    }
+    DEF OBSTACLE_C2 WoodenChair {
+      translation 6.46 0.46 0
+      name "wooden chair 2"
+    }
+    DEF OBSTACLE_C3 WoodenChair {
+      translation 6.46 0.91 0
+      name "wooden chair 3"
+    }
+    DEF OBSTACLE_C4 WoodenChair {
+      translation 6.46 1.38 0
+      name "wooden chair 4"
+    }
+    DEF OBSTACLE_JJ1 JamJar {
+      translation 5.31 -0.16 0
+      name "jam jar 1"
+    }
+    DEF OBSTACLE_JJ2 JamJar {
+      translation 5.31 -0.05 0
+      name "jam jar 2"
+    }
+    DEF OBSTACLE_JJ3 JamJar {
+      translation 5.31 0.06 0
+      name "jam jar 3"
+    }
+    DEF OBSTACLE_JJ4 JamJar {
+      translation 5.31 0.16 0
+      name "jam jar 4"
+    }
+  ]
 }
