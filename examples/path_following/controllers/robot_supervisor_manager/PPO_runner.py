@@ -18,9 +18,25 @@ def run():
     episodes_per_checkpoint = 200
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
+    difficulty = {
+        0: {"number_of_obstacles": 0, "min_target_dist": 1, "max_target_dist": 1},
+        500: {"number_of_obstacles": 4, "min_target_dist": 1, "max_target_dist": 2},
+        1500: {"number_of_obstacles": 8, "min_target_dist": 1, "max_target_dist": 3},
+        3000: {"number_of_obstacles": 12, "min_target_dist": 1, "max_target_dist": 4},
+        5000: {"number_of_obstacles": 16, "min_target_dist": 1, "max_target_dist": 5},
+        10000: {"number_of_obstacles": 20, "min_target_dist": 1, "max_target_dist": 6},
+        12000: {"number_of_obstacles": 20, "min_target_dist": 2, "max_target_dist": 6},
+        14000: {"number_of_obstacles": 20, "min_target_dist": 3, "max_target_dist": 6},
+        16000: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 6},
+        18000: {"number_of_obstacles": 20, "min_target_dist": 5, "max_target_dist": 6},
+        20000: {"number_of_obstacles": 20, "min_target_dist": 6, "max_target_dist": 6},
+    }
 
     # Run outer loop until the episodes limit is reached or the task is solved
     while not solved and episode_count < episode_limit:
+        if episode_count in difficulty.keys():
+            env.set_difficulty(difficulty[episode_count])
+
         state = env.reset()  # Reset robot and get starting observation
         env.episode_score = 0
         action_probs = []  # This list holds the probability of each chosen action
