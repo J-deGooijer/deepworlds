@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.3160221117267843 -0.31809431674893923 -0.8938378099810779 4.605858620620651
-  position -0.12897269160750136 -8.781719362907548 6.545164249791947
+  orientation 0.3260520280287323 -0.4314285052413172 -0.8411655722172617 4.818263431589468
+  position -1.8996750253635355 -6.099202161067255 5.525048871939221
 }
 TexturedBackground {
 }
@@ -20,11 +20,10 @@ TexturedBackgroundLight {
 }
 RectangleArena {
   rotation 0 1 0 0
-  floorSize 10 10
+  floorSize 4 4
   floorTileSize 1 1
   floorAppearance Parquetry {
   }
-  wallHeight 0.5
 }
 DEF ROBOT Robot {
   translation 0 0 0.0399261
@@ -69,8 +68,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 0.06 -1.2287559033515813e-18
-        rotation 1 5.247351061897109e-09 -5.247370315120555e-09 1.5707999999999809
+        translation 0.020000000000000004 0.06 5.941193660289734e-19
+        rotation 1 5.2473510520840245e-09 -5.247370030541763e-09 1.5707999999999809
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -101,8 +100,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 -0.06 1.8205593176878545e-18
-        rotation 1 -5.87933141689783e-12 5.880008386053733e-12 1.5707999999999889
+        translation 0.020000000000000004 -0.06 6.2444678032631774e-18
+        rotation 1 -5.879749945148137e-12 5.8801424675418995e-12 1.5707999999999878
         children [
           USE WHEEL
         ]
