@@ -56,11 +56,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Set up various robot components
         self.robot = self.getSelf()
 
-        # try:
-        #     self.camera = self.getDevice("camera")
-        #     self.camera.enable(self.timestep)  # NOQA
-        # except AttributeError:
-        #     print("No camera found.")
+        # Distance sensors are used for the robot to perceive obstacles
         self.distance_sensors = []
         try:
             for ds_name in ["outer_left", "inner_left", "center", "inner_right", "outer_right"]:
@@ -70,12 +66,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         except AttributeError:
             warn("\nNo distance sensors initialized.\n ")
 
+        # Touch sensor is used to terminate episode when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
         self.touch_sensor.enable(self.timestep)  # NOQA
 
         # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
         # this loop grabs the first distance sensor child of the robot and gets the max value it can output
-        # from its lookup table.
+        # from its lookup table. This is used for normalizing the observation
         self.ds_max = -1
         for childNodeIndex in range(self.robot.getField("children").getCount()):
             child = self.robot.getField("children").getMFNode(childNodeIndex)  # NOQA
@@ -83,6 +80,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.ds_max = child.getField("lookupTable").getMFVec3f(-1)[1]
                 break
 
+        # Set up motors
         self.left_motor = self.getDevice("left_wheel")
         self.right_motor = self.getDevice("right_wheel")
         self.set_velocity(0.0, 0.0)
@@ -94,15 +92,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.steps_per_episode = 5000
         self.episode_score = 0
         self.episode_score_list = []
-        self.target_position = [0.0, 0.0]
 
+        # Target-related stuff
+        self.target_position = [0.0, 0.0]
         self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 32  # Threshold on which robot is considered facing the target
+        self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.on_target_counter = 0
         self.on_target_limit = 400  # The number of steps robot should be on target before the target moves
-        self.trigger_done = False
+        self.trigger_done = False  # Used to trigger the done condition
 
         # Map
         width, height = 7, 7
@@ -128,9 +127,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  f"Number of obstacles is set to {len(self.all_obstacles)}.\n ")
             self.number_of_obstacles = len(self.all_obstacles)
 
+        # Path to target stuff
         self.path_to_target = None
-        self.min_path_length = 1
-        self.max_path_length = 1  # The maximum path length allowed, starts at 1
+        self.min_target_dist = 1
+        self.max_target_dist = 1  # The maximum (manhattan) distance of the target length allowed, starts at 1
+
+    def set_difficulty(self, difficulty_dict):
+        self.number_of_obstacles = difficulty_dict["number_of_obstacles"]
+        self.min_target_dist = difficulty_dict["min_target_dist"]
+        self.max_target_dist = difficulty_dict["max_target_dist"]
+        print("Changed difficulty to:", difficulty_dict)
 
     def get_observations(self):
         """
@@ -368,7 +374,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         robot_coordinates = self.map.find_by_name("robot")
         if not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
                                  self.target,
-                                 min_distance=self.min_path_length, max_distance=self.max_path_length):
+                                 min_distance=self.min_target_dist, max_distance=self.max_target_dist):
             return None  # Need to re-randomize obstacles as add_near failed
         return self.map.bfs_path(robot_coordinates, self.map.find_by_name("target"))
 
