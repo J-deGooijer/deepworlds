@@ -95,13 +95,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.episode_score = 0
         self.episode_score_list = []
         self.target_position = [0.0, 0.0]
-        self.d_min = 0.25  # Minimum distance along the x- or y-axis between the robot and the target. 0.25=25cm
-        self.d_max = 1.0  # Maximum distance along the x- or y-axis between the robot and the target. 1.0=100cm
-        # The real max distance calculation when target is d_max away in both axes
-        self.real_d_max = np.sqrt(2 * (self.d_max * self.d_max))
+        self.initial_tar_dist = 0
 
-        self.on_target_threshold = 0.05  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 32  # Threshold on which robot is considered facing the target, π/32~5deg
+        self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
+        self.facing_target_threshold = np.pi / 16  # Threshold on which robot is considered facing the target, π/32~5deg
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.on_target_counter = 0
@@ -121,7 +118,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             child = self.getFromDef("OBSTACLES").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_obstacles.append(child)
 
-        self.number_of_obstacles = 0  # The number of obstacles to use
+        self.number_of_obstacles = len(self.all_obstacles)  # The number of obstacles to use
         if self.number_of_obstacles > len(self.all_obstacles):
             warn(f"\n \nNumber of obstacles set is greater than the number of obstacles that exist in the "
                  f"world ({self.number_of_obstacles} > {len(self.all_obstacles)}).\n"
@@ -129,7 +126,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.number_of_obstacles = len(self.all_obstacles)
 
         self.path_to_target = None
-        self.max_path_length = 1  # The maximum path length allowed
+        self.min_path_length = 2
+        self.max_path_length = 5  # The maximum path length allowed
 
     def get_observations(self):
         """
@@ -147,7 +145,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         # Target distance
         tar_d = get_distance_from_target(self.robot, self.target)
-        tar_d = round(normalize_to_range(tar_d, 0.0, self.real_d_max, 0.0, 1.0, clip=True), 2)
+        tar_d = round(normalize_to_range(tar_d, 0.0, self.initial_tar_dist, 0.0, 1.0, clip=True), 2)
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
         tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 2)
@@ -158,6 +156,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for ds in self.distance_sensors:
             ds_values.append(ds.getValue())  # NOQA
             ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0, clip=True), 2)
+            print(ds_values)
         obs.extend(ds_values)
         return obs
 
@@ -247,6 +246,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         starting_obs = super().reset()
         # Reset path
         self.path_to_target = None
+        self.initial_tar_dist = get_distance_from_target(self.robot, self.target)
 
         # Set robot random rotation
         self.robot.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
@@ -369,9 +369,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         TODO docstring
         """
         robot_coordinates = self.map.find_by_name("robot")
-        if not self.map.insert_near(robot_coordinates[0], robot_coordinates[1],
-                                    self.target, max_distance=self.max_path_length):
-            return None  # Need to re-randomize obstacles as insert_near failed
+        try:
+            if not self.map.insert_near(robot_coordinates[0], robot_coordinates[1],
+                                        self.target,
+                                        min_distance=self.min_path_length, max_distance=self.max_path_length):
+                return None  # Need to re-randomize obstacles as insert_near failed
+        except RecursionError:
+            print("insert_near reached recursion limit error.")
+            return None
         return self.map.bfs_path(robot_coordinates, self.map.find_by_name("target"))
 
     def get_info(self):
@@ -425,30 +430,26 @@ class Grid:
         else:
             self.insert_random(node)
 
-    def insert_near(self, x, y, node, max_distance=1):
-        try:
-            how_near = random.randrange(1, max_distance + 1)
+    def insert_near(self, x, y, node, min_distance=1, max_distance=1):
+        how_near = random.randrange(min_distance, max_distance + 1)
+        near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
+                       (x + how_near, y + how_near), (x - how_near, y - how_near),
+                       (x - how_near, y + how_near), (x + how_near, y - how_near)]
+        coords = random.choice(near_coords)
+        # Make sure the random selection is in range
+        # Re-randomize everything to make it faster in edge cases
+        while not self.is_in_range(coords[0], coords[1]):
+            how_near = random.randrange(min_distance, max_distance + 1)
             near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
                            (x + how_near, y + how_near), (x - how_near, y - how_near),
                            (x - how_near, y + how_near), (x + how_near, y - how_near)]
             coords = random.choice(near_coords)
-            # Make sure the random selection is in range
-            # Re-randomize everything to make it faster in edge cases
-            while not self.is_in_range(coords[0], coords[1]):
-                how_near = random.randrange(1, max_distance + 1)
-                near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
-                               (x + how_near, y + how_near), (x - how_near, y - how_near),
-                               (x - how_near, y + how_near), (x + how_near, y - how_near)]
-                coords = random.choice(near_coords)
 
-            if self.set_cell(coords[0], coords[1], node):
-                pass
-            else:
-                self.insert_near(x, y, node)
-            return True
-        except RecursionError:
-            print("insert_near reached recursion limit error.")
-            return False
+        if self.set_cell(coords[0], coords[1], node):
+            pass
+        else:
+            self.insert_near(x, y, node)
+        return True
 
     def get_world_coordinates(self, x, y):
         world_x = self.origin[0] + x * self.cell_size[0]
