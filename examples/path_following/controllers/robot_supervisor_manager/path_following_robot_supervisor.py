@@ -186,11 +186,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Find which path node is the next one
         robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
         # Is there a path node in the current robot cell? Consider it reached and remove it
-        if not self.map.is_empty(robot_cell[0], robot_cell[1]) \
-                and self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "p":  # NOQA
-            self.path_to_target.remove((robot_cell[0], robot_cell[1]))
-            self.map.get_cell(robot_cell[0], robot_cell[1]).getField("translation").setSFVec3f([999, 999, 0])  # NOQA
-            self.map.remove_cell(robot_cell[0], robot_cell[1])
+        if robot_cell[0] is not None:
+            if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
+                    self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "p":  # NOQA
+                self.path_to_target.remove((robot_cell[0], robot_cell[1]))
+                self.map.get_cell(robot_cell[0], robot_cell[1]).getField("translation").setSFVec3f([999, 999, 0])  # NOQA
+                self.map.remove_cell(robot_cell[0], robot_cell[1])
 
         # Get the next point in the path
         next_path_node = self.map.get_cell(self.path_to_target[0][0], self.path_to_target[0][1])
