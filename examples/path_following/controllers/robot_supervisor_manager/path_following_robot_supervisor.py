@@ -120,6 +120,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             child = self.getFromDef("OBSTACLES").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_obstacles.append(child)
 
+        # Path node references
+        self.all_path_nodes = []
+        for childNodeIndex in range(self.getFromDef("PATH").getField("children").getCount()):
+            child = self.getFromDef("PATH").getField("children").getMFNode(childNodeIndex)  # NOQA
+            self.all_path_nodes.append(child)
+
         self.number_of_obstacles = 0  # The number of obstacles to use, start with 0
         if self.number_of_obstacles > len(self.all_obstacles):
             warn(f"\n \nNumber of obstacles set is greater than the number of obstacles that exist in the "
@@ -128,7 +134,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.number_of_obstacles = len(self.all_obstacles)
 
         # Path to target stuff
-        self.path_to_target = None
+        self.path_to_target = []
         self.min_target_dist = 1
         self.max_target_dist = 1  # The maximum (manhattan) distance of the target length allowed, starts at 1
 
@@ -176,7 +182,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         r = 0
         current_distance = get_distance_from_target(self.robot, self.target)
-        current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)
+
+        # Find which path node is the next one
+        robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
+        # Is there a path node in the current robot cell? Consider it reached and remove it
+        if not self.map.is_empty(robot_cell[0], robot_cell[1]) \
+                and self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "p":  # NOQA
+            self.path_to_target.remove((robot_cell[0], robot_cell[1]))
+            self.map.get_cell(robot_cell[0], robot_cell[1]).getField("translation").setSFVec3f([999, 999, 0])  # NOQA
+            self.map.remove_cell(robot_cell[0], robot_cell[1])
+
+        # Get the next point in the path
+        next_path_node = self.map.get_cell(self.path_to_target[0][0], self.path_to_target[0][1])
+
+        current_angle = get_angle_from_target(self.robot, next_path_node, is_abs=True)  # NOQA
 
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
             # When on target and facing it, action should be "no action"
@@ -203,7 +222,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 r = r - 1
         self.previous_distance = current_distance
 
-        # Decreasing angle to target reward
+        # Decreasing angle to next target reward
         if current_angle - self.previous_angle < -0.001:
             r = r + 2
         elif current_angle - self.previous_angle > 0.001:
@@ -268,7 +287,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.path_to_target = self.get_random_path()
             if self.path_to_target is not None:
                 randomization_successful = True
-
+                self.path_to_target = self.path_to_target[1:]  # Remove starting node
+        self.place_path(self.path_to_target)
         return starting_obs
 
     def solved(self):
@@ -378,6 +398,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             return None  # Need to re-randomize obstacles as add_near failed
         return self.map.bfs_path(robot_coordinates, self.map.find_by_name("target"))
 
+    def place_path(self, path):
+        for p, l in zip(path, self.all_path_nodes):
+            self.map.add_cell(p[0], p[1], l)
+
     def get_info(self):
         """
         Dummy implementation of get_info.
@@ -421,6 +445,37 @@ class Grid:
         else:
             warn("Can't remove cell outside grid range.")
 
+    def get_cell(self, x, y):
+        if self.is_in_range(x, y):
+            return self.grid[y][x]
+        else:
+            warn("Can't return cell outside grid range.")
+            return None
+
+    def get_neighbourhood(self, x, y):
+        if self.is_in_range(x, y):
+            neighbourhood_coords = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1),
+                                    (x + 1, y + 1), (x - 1, y - 1),
+                                    (x - 1, y + 1), (x + 1, y - 1)]
+            neighbourhood_nodes = []
+            for nc in neighbourhood_coords:
+                if self.is_in_range(nc[0], nc[1]):
+                    neighbourhood_nodes.append(self.get_cell(nc[0], nc[1]))
+            return neighbourhood_nodes
+        else:
+            warn("Can't get neighbourhood of cell outside grid range.")
+            return None
+
+    def is_empty(self, x, y):
+        if self.is_in_range(x, y):
+            if self.grid[y][x]:
+                return False
+            else:
+                return True
+        else:
+            warn("Coordinates provided are outside grid range.")
+            return None
+
     def empty(self):
         self.grid = [[None for _ in range(len(self.grid[0]))] for _ in range(len(self.grid))]
 
@@ -453,6 +508,14 @@ class Grid:
             world_x = self.origin[0] + x * self.cell_size[0]
             world_y = self.origin[1] - y * self.cell_size[1]
             return world_x, world_y
+        else:
+            return None, None
+
+    def get_grid_coordinates(self, world_x, world_y):
+        x = round((world_x - self.origin[0]) / self.cell_size[0])
+        y = -round((world_y - self.origin[1]) / self.cell_size[1])
+        if self.is_in_range(x, y):
+            return x, y
         else:
             return None, None
 
