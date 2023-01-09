@@ -179,9 +179,9 @@ class PPOAgent:
 class Actor(nn.Module):
     def __init__(self, num_of_inputs, num_of_outputs):
         super(Actor, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 30)
-        self.fc2 = nn.Linear(30, 50)
-        self.action_head = nn.Linear(50, num_of_outputs)
+        self.fc1 = nn.Linear(num_of_inputs, 10)
+        self.fc2 = nn.Linear(10, 20)
+        self.action_head = nn.Linear(20, num_of_outputs)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -193,9 +193,9 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, num_of_inputs):
         super(Critic, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 30)
-        self.fc2 = nn.Linear(30, 50)
-        self.state_value = nn.Linear(50, 1)
+        self.fc1 = nn.Linear(num_of_inputs, 10)
+        self.fc2 = nn.Linear(10, 20)
+        self.state_value = nn.Linear(20, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
