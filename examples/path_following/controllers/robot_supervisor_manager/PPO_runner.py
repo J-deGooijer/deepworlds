@@ -19,7 +19,7 @@ def run():
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
     difficulty = {
-        0: {"number_of_obstacles": 8, "min_target_dist": 2, "max_target_dist": 6},
+        0: {"number_of_obstacles": 0, "min_target_dist": 1, "max_target_dist": 1},
         250: {"number_of_obstacles": 4, "min_target_dist": 1, "max_target_dist": 2},
         1000: {"number_of_obstacles": 8, "min_target_dist": 1, "max_target_dist": 3},
         2500: {"number_of_obstacles": 12, "min_target_dist": 1, "max_target_dist": 4},
