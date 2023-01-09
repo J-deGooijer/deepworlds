@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.3260520280287323 -0.4314285052413172 -0.8411655722172617 4.818263431589468
-  position -1.8996750253635355 -6.099202161067255 5.525048871939221
+  orientation 0.3358367650450293 -0.333400338008448 -0.8809414747075667 4.57777268798188
+  position 0.2889252627169685 -7.0003474935129955 6.1855771888607025
 }
 TexturedBackground {
 }
@@ -191,8 +191,9 @@ DEF ROBOT Robot {
   supervisor TRUE
 }
 DEF TARGET Solid {
-  translation 0.74 -3.83376e-06 0.001
+  translation 0.74 -0.0100038 0.001
   rotation 0 0 1 -1.5707953071795862
+  scale 2 2 2
   children [
     Shape {
       appearance Appearance {
@@ -211,7 +212,7 @@ DEF TARGET Solid {
   ]
   name "target"
 }
-DEF OBSTACLES Transform {
+DEF OBSTACLES Group {
   children [
     DEF OBSTACLE_CBL1 CardboardBox {
       translation 5.5 0 0.051
@@ -304,6 +305,362 @@ DEF OBSTACLES Transform {
     DEF OBSTACLE_JJ4 JamJar {
       translation 5.31 0.16 0
       name "jam jar 4"
+    }
+  ]
+}
+DEF PATH Group {
+  children [
+    DEF p0 Solid {
+      translation 5.13 6.4235e-07 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p"
+    }
+    DEF p1 Solid {
+      translation 5.13 0.120001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(1)"
+    }
+    DEF p2 Solid {
+      translation 5.13 0.250001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(2)"
+    }
+    DEF p3 Solid {
+      translation 5.13 0.360001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(3)"
+    }
+    DEF p4 Solid {
+      translation 5.13 0.490001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(4)"
+    }
+    DEF p5 Solid {
+      translation 5.13 0.610001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(5)"
+    }
+    DEF p6 Solid {
+      translation 5.13 0.730001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(6)"
+    }
+    DEF p7 Solid {
+      translation 5.13 0.850001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(7)"
+    }
+    DEF p8 Solid {
+      translation 5.13 0.970001 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(8)"
+    }
+    DEF p9 Solid {
+      translation 5.13 1.1 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(9)"
+    }
+    DEF p10 Solid {
+      translation 5.13 1.23 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(10)"
+    }
+    DEF p11 Solid {
+      translation 5.13 1.36 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(11)"
+    }
+    DEF p12 Solid {
+      translation 5.13 1.49 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(12)"
+    }
+    DEF p13 Solid {
+      translation 5.13 1.61 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(13)"
+    }
+    DEF p14 Solid {
+      translation 5.13 1.74 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(14)"
+    }
+    DEF p15 Solid {
+      translation 5.13 1.86 0.001
+      rotation 0 0 1 -1.5707953071795862
+      children [
+        Shape {
+          appearance Appearance {
+            material Material {
+              transparency 0.75
+            }
+            texture ImageTexture {
+              url [
+                "https://avatars.githubusercontent.com/u/57842071?s=256"
+              ]
+            }
+          }
+          geometry Plane {
+            size 0.12 0.12
+          }
+        }
+      ]
+      name "p(15)"
     }
   ]
 }
