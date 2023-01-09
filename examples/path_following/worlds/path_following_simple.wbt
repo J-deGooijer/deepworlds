@@ -68,8 +68,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 0.06 5.941193660289734e-19
-        rotation 1 5.2473510520840245e-09 -5.247370030541763e-09 1.5707999999999809
+        translation 0.020000000000000004 0.06 1.4548505635371076e-17
+        rotation 1 4.429803545871984e-09 -4.429816185093063e-09 1.5707999999995534
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -100,8 +100,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 -0.06 6.2444678032631774e-18
-        rotation 1 -5.879749945148137e-12 5.8801424675418995e-12 1.5707999999999878
+        translation 0.020000000000000004 -0.06 4.5071609150086356e-17
+        rotation 1 -1.214901517000423e-09 1.2148984553257518e-09 1.5707999999995588
         children [
           USE WHEEL
         ]
@@ -119,7 +119,6 @@ DEF ROBOT Robot {
         0.02 0 0
         0.1 10 0
         0.5 50 0
-        2.55 255 0
       ]
     }
     DistanceSensor {
@@ -130,7 +129,6 @@ DEF ROBOT Robot {
         0.02 0 0
         0.1 10 0
         0.5 50 0
-        2.55 255 0
       ]
     }
     DistanceSensor {
@@ -152,7 +150,6 @@ DEF ROBOT Robot {
         0.02 0 0
         0.1 10 0
         0.5 50 0
-        2.55 255 0
       ]
     }
     DistanceSensor {
@@ -163,7 +160,6 @@ DEF ROBOT Robot {
         0.02 0 0
         0.1 10 0
         0.5 50 0
-        2.55 255 0
       ]
     }
     DistanceSensor {
@@ -174,7 +170,6 @@ DEF ROBOT Robot {
         0.02 0 0
         0.1 10 0
         0.5 50 0
-        2.55 255 0
       ]
     }
     TouchSensor {
