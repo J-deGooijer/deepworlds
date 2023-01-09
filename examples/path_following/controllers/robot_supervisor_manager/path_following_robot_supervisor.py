@@ -160,17 +160,17 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         # Target distance
         tar_d = get_distance_from_target(self.robot, self.target)
-        tar_d = round(normalize_to_range(tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True), 4)
+        tar_d = round(normalize_to_range(tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True), 8)
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
-        tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 4)
+        tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 8)
         obs = [tar_d, tar_a]
 
         # Add distance sensor values
         ds_values = []
         for ds in self.distance_sensors:
             ds_values.append(ds.getValue())  # NOQA
-            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0), 4)
+            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0), 8)
         obs.extend(ds_values)
         return obs
 
