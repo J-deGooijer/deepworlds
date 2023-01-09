@@ -22,7 +22,7 @@ class PPOAgent:
     """
 
     def __init__(self, num_of_inputs, num_of_actor_outputs, clip_param=0.2, max_grad_norm=0.5, ppo_update_iters=5,
-                 batch_size=8, gamma=0.99, use_cuda=False, actor_lr=0.0001, critic_lr=0.0003, seed=None):
+                 batch_size=8, gamma=0.99, use_cuda=False, actor_lr=0.001, critic_lr=0.003, seed=None):
         super().__init__()
         if seed is not None:
             manual_seed(seed)
