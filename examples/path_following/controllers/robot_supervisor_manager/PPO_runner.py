@@ -20,11 +20,11 @@ def run():
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
     difficulty = {
         0: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 3},
-        5000: {"number_of_obstacles": 10, "min_target_dist": 1, "max_target_dist": 3},
-        7500: {"number_of_obstacles": 15, "min_target_dist": 2, "max_target_dist": 4},
-        10000: {"number_of_obstacles": 15, "min_target_dist": 3, "max_target_dist": 4},
-        12500: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 5},
-        15000: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 6},
+        250: {"number_of_obstacles": 10, "min_target_dist": 1, "max_target_dist": 3},
+        1000: {"number_of_obstacles": 15, "min_target_dist": 2, "max_target_dist": 4},
+        1500: {"number_of_obstacles": 15, "min_target_dist": 3, "max_target_dist": 4},
+        2000: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 5},
+        2500: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 6},
     }
 
     # Run outer loop until the episodes limit is reached or the task is solved
