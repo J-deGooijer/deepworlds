@@ -96,11 +96,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Target-related stuff
         self.target_position = [0.0, 0.0]
         self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 8  # Threshold on which robot is considered facing the target
+        self.facing_target_threshold = np.pi / 16  # Threshold on which robot is considered facing the target
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.on_target_counter = 0
-        self.on_target_limit = 400  # The number of steps robot should be on target before the target moves
+        self.on_target_limit = 100  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
 
         # Map
@@ -182,21 +182,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         r = 0
         current_distance = get_distance_from_target(self.robot, self.target)
-
-        # Find which path node is the next one
-        robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
-        # Is there a path node in the current robot cell? Consider it reached and remove it
-        if robot_cell[0] is not None:
-            if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
-                    self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "p":  # NOQA
-                self.path_to_target.remove((robot_cell[0], robot_cell[1]))
-                self.map.get_cell(robot_cell[0], robot_cell[1]).getField("translation").setSFVec3f([999, 999, 0])  # NOQA
-                self.map.remove_cell(robot_cell[0], robot_cell[1])
-
-        # Get the next point in the path
-        next_path_node = self.map.get_cell(self.path_to_target[0][0], self.path_to_target[0][1])
-
-        current_angle = get_angle_from_target(self.robot, next_path_node, is_abs=True)  # NOQA
+        current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
 
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
             # When on target and facing it, action should be "no action"
@@ -223,12 +209,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 r = r - 1
         self.previous_distance = current_distance
 
-        # Decreasing angle to next target reward
-        if current_angle - self.previous_angle < -0.001:
-            r = r + 2
-        elif current_angle - self.previous_angle > 0.001:
-            r = r - 4
-        self.previous_angle = current_angle
+        # Reward based on decreasing angle is applied only when the robot is close to the target, i.e. on the same
+        # grid map cell. This means that no obstacles are in between.
+        robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
+        if robot_cell[0] is not None:
+            if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
+                    self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "TARGET":  # NOQA
+                # Decreasing angle to target reward
+                if current_angle - self.previous_angle < -0.001:
+                    r = r + 2
+                elif current_angle - self.previous_angle > 0.001:
+                    r = r - 2
+                self.previous_angle = current_angle
 
         # The following section checks whether the robot is on target and facing it
         # for a length of time.
