@@ -181,11 +181,13 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.fc1 = nn.Linear(num_of_inputs, 10)
         self.fc2 = nn.Linear(10, 20)
-        self.action_head = nn.Linear(20, num_of_outputs)
+        self.fc3 = nn.Linear(20, 10)
+        self.action_head = nn.Linear(10, num_of_outputs)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         action_prob = F.softmax(self.action_head(x), dim=1)
         return action_prob
 
@@ -195,10 +197,12 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
         self.fc1 = nn.Linear(num_of_inputs, 10)
         self.fc2 = nn.Linear(10, 20)
-        self.state_value = nn.Linear(20, 1)
+        self.fc3 = nn.Linear(20, 10)
+        self.state_value = nn.Linear(10, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         value = self.state_value(x)
         return value
