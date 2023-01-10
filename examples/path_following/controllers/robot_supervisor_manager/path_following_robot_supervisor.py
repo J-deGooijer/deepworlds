@@ -315,11 +315,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :rtype: bool
         """
         # TODO redo this
-        avg_score_limit = (1317.196 * self.map.size()[0] + 4820.286) * 10
-
-        if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
-            if np.mean(self.episode_score_list[-10:]) > avg_score_limit:  # Last 10 episode scores average value
-                return True
+        # avg_score_limit = (1317.196 * self.map.size()[0] + 4820.286) * 10
+        #
+        # if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
+        #     if np.mean(self.episode_score_list[-10:]) > avg_score_limit:  # Last 10 episode scores average value
+        #         return True
         return False
 
     def get_default_observation(self):
