@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.46051261304698093 -0.4570270893909772 -0.7609562226484866 4.434522140861732
-  position -0.07952829917640558 -5.191989184242649 9.854349594087351
+  orientation 0.4348108727552147 -0.4358794708169756 -0.7880029136076603 4.477995550674653
+  position 0.43229909951920376 -3.9860923053625914 6.456279834745398
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0 0.06 1.39691e-17
-        rotation 1 4.477545914743507e-09 -4.4775588078371695e-09 1.5707999999995526
+        translation 9.629649721936179e-33 0.06 1.3969099999999982e-17
+        rotation 1 4.477544876871426e-09 -4.4775577319798225e-09 1.570799999999535
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0 -0.06 4.50131e-17
-        rotation 1 -1.2149016691028461e-09 1.2148984577790124e-09 1.5707999999995585
+        translation 9.244463733058732e-33 -0.06 4.501309999999999e-17
+        rotation 1 -1.2149047749362995e-09 1.2148990441093504e-09 1.5707999999995457
         children [
           USE WHEEL
         ]
@@ -130,6 +130,16 @@ DEF ROBOT Robot {
         physics Physics {
         }
       }
+    }
+    DistanceSensor {
+      translation 0.055 4.89665e-14 0
+      rotation 0 0 1 1.5708
+      name "ds_left"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+      ]
     }
     DistanceSensor {
       translation 0.05 0 0
@@ -186,6 +196,16 @@ DEF ROBOT Robot {
       translation 0.05 0 0
       rotation 0 0 1 -1.0472003061004251
       name "ds_outer_right"
+      lookupTable [
+        0.02 0 0
+        0.1 10 0
+        0.5 50 0
+      ]
+    }
+    DistanceSensor {
+      translation 0.055 0 0
+      rotation 0 0 1 -1.5707953071795862
+      name "ds_right"
       lookupTable [
         0.02 0 0
         0.1 10 0
