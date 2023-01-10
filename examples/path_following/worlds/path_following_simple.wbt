@@ -11,8 +11,9 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.3358367650450293 -0.333400338008448 -0.8809414747075667 4.57777268798188
-  position 0.2889252627169685 -7.0003474935129955 6.1855771888607025
+  orientation 0.46051261304698093 -0.4570270893909772 -0.7609562226484866 4.434522140861732
+  position -0.07952829917640558 -5.191989184242649 9.854349594087351
+  follow "robot"
 }
 TexturedBackground {
 }
@@ -28,8 +29,8 @@ RectangleArena {
 DEF ROBOT Robot {
   translation 0 0 0.0399261
   children [
-    DEF CASTOR_WHEEL Solid {
-      translation -0.04 0 -0.03
+    DEF CASTOR_WHEEL_FRONT Solid {
+      translation 0.04 0 -0.03
       scale 0.1 0.1 0.1
       children [
         DEF CASTOR Shape {
@@ -47,6 +48,25 @@ DEF ROBOT Robot {
       physics Physics {
       }
     }
+    DEF CASTOR_WHEEL_BACK Solid {
+      translation -0.04 0 -0.03
+      scale 0.1 0.1 0.1
+      children [
+        DEF CASTOR Shape {
+          appearance PBRAppearance {
+            baseColor 0.12549 0.290196 0.529412
+            metalness 0
+          }
+          geometry Sphere {
+            radius 0.1
+          }
+        }
+      ]
+      name "CASTOR_WHEEL(1)"
+      boundingObject USE CASTOR
+      physics Physics {
+      }
+    }
     DEF BODY Shape {
       appearance PBRAppearance {
         baseColor 0.917647 0.145098 0.145098
@@ -60,7 +80,7 @@ DEF ROBOT Robot {
     DEF WHEEL1 HingeJoint {
       jointParameters HingeJointParameters {
         axis 0 1 0
-        anchor 0.02 0.06 0
+        anchor 0 0.06 0
       }
       device [
         RotationalMotor {
@@ -68,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 0.06 1.4548505635371076e-17
-        rotation 1 4.429803545871984e-09 -4.429816185093063e-09 1.5707999999995534
+        translation 0 0.06 1.39691e-17
+        rotation 1 4.477545914743507e-09 -4.4775588078371695e-09 1.5707999999995526
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -92,7 +112,7 @@ DEF ROBOT Robot {
     DEF WHEEL2 HingeJoint {
       jointParameters HingeJointParameters {
         axis 0 1 0
-        anchor 0.02 -0.06 0
+        anchor 0 -0.06 0
       }
       device [
         RotationalMotor {
@@ -100,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 0.020000000000000004 -0.06 4.5071609150086356e-17
-        rotation 1 -1.214901517000423e-09 1.2148984553257518e-09 1.5707999999995588
+        translation 0 -0.06 4.50131e-17
+        rotation 1 -1.2149016691028461e-09 1.2148984577790124e-09 1.5707999999995585
         children [
           USE WHEEL
         ]
