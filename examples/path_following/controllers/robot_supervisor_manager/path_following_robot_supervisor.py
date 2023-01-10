@@ -92,6 +92,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.steps_per_episode = 5000
         self.episode_score = 0
         self.episode_score_list = []
+        self.obs = []
 
         # Target-related stuff
         self.target_position = [0.0, 0.0]
@@ -164,15 +165,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
         tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 8)
-        obs = [tar_d, tar_a]
+        self.obs = [tar_d, tar_a]
 
         # Add distance sensor values
         ds_values = []
         for ds in self.distance_sensors:
             ds_values.append(ds.getValue())  # NOQA
             ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0), 8)
-        obs.extend(ds_values)
-        return obs
+        self.obs.extend(ds_values)
+        return self.obs
 
     def get_reward(self, action):
         """
@@ -237,19 +238,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 if action == 3:
                     r = -1  # Action is stop, punish
                 if action == 1 or action == 2:
-                    # Action is turning
-                    # Reward based on decreasing angle is applied when the robot is close to the target, i.e. on the same
-                    # grid map cell. This means that no obstacles are in between.
-                    robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
-                    if robot_cell[0] is not None and not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
-                                self.map.get_cell(robot_cell[0], robot_cell[1]).getDef() == "TARGET":  # NOQA
+                    # Action is turning and no obstacle is detected, reward turning to target
+                    if sum(self.obs[2:]) < 0.1:
                         if self.previous_angle - current_angle > 0.001:
                             r = 2  # Decreasing angle to target, reward
                         elif self.previous_angle - current_angle < -0.001:
-                            r = -2  # Increasing angle to target, punish
-                    else:
-                        r = -1
-
+                            r = -4  # Increasing angle to target, punish
         self.previous_distance = current_distance
         self.previous_angle = current_angle
 
