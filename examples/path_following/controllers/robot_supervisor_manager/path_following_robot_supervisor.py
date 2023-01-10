@@ -241,13 +241,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     # Reward based on decreasing angle is applied when the robot is close to the target, i.e. on the same
                     # grid map cell. This means that no obstacles are in between.
                     robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
-                    if robot_cell[0] is not None:
-                        if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
+                    if robot_cell[0] is not None and not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
                                 self.map.get_cell(robot_cell[0], robot_cell[1]).getDef() == "TARGET":  # NOQA
-                            if self.previous_angle - current_angle > 0.001:
-                                r = 2  # Decreasing angle to target, reward
-                            elif self.previous_angle - current_angle < -0.001:
-                                r = -2  # Increasing angle to target, punish
+                        if self.previous_angle - current_angle > 0.001:
+                            r = 2  # Decreasing angle to target, reward
+                        elif self.previous_angle - current_angle < -0.001:
+                            r = -2  # Increasing angle to target, punish
+                    else:
+                        r = -1
 
         self.previous_distance = current_distance
         self.previous_angle = current_angle
