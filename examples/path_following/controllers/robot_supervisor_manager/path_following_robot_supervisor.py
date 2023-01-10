@@ -184,62 +184,75 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         current_distance = get_distance_from_target(self.robot, self.target)
         current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
 
+        ################################################################################################################
+        # "On target and facing it" case
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
-            # When on target and facing it, action should be "no action"
+            # When on target and facing it, action should be "stop"
             if action != 3:
+                # Action is not "stop", punish
                 r = -10
+                self.on_target_counter = 0  # If on target and facing but not stopping, reset counter
             else:
-                r = 10
+                # Action is "stop", large reward
+                r = 100
+                # Count to limit to terminate episode
+                if self.on_target_counter >= self.on_target_limit:
+                    # Robot is on target for a number of steps and is stopping, so reward it and terminate episode
+                    self.trigger_done = True
+                    self.on_target_counter = 0
+                    r += 1000
+                else:
+                    self.on_target_counter += 1  # Limit is not reached, continue counting
+        ################################################################################################################
+        # "On target but not facing it" case
         elif current_distance < self.on_target_threshold:
-            # Close to target but not facing it, no reward regardless of the action
-            # If the robot turns towards the target the decreasing angle reward section below will reward it
-            r = 0
+            if action == 1 or action == 2:
+                # Reward turning
+                if self.previous_angle - current_angle > 0.001:
+                    r = 10  # Decreasing angle to target, reward
+                elif self.previous_angle - current_angle < -0.001:
+                    r = -10  # Increasing angle to target, punish
+            else:
+                # Action is either move forward or stop, punish
+                r = -10
+        ################################################################################################################
+        # "Not on target case" case
         else:
-            # Robot is far from the target
-            # Distance is decreasing and robot is moving forward
-            if current_distance - self.previous_distance < -0.0001 and action == 0:
-                # Cumulative reward based on the facing angle
-                if current_angle < self.facing_target_threshold:
-                    r = r + 3
-            # Distance is increasing and robot is moving forward
-            elif current_distance - self.previous_distance > 0.0001 and action == 0:
-                r = r - 10
+            self.on_target_counter = 0  # If either distance or angle is larger than thresholds, reset counter
+            ############################################################################################################
+            # Distance is decreasing
+            if self.previous_distance - current_distance > 0.0001:
+                if action == 0:  # Moving forward
+                    r = 2
+                    if current_angle < self.facing_target_threshold:
+                        r = r + 3  # Moving directly towards target, reward more
+            ############################################################################################################
+            # Distance is increasing
+            elif self.previous_distance - current_distance < -0.0001:
+                if action == 0:
+                    r = -10  # Action is moving forward, punish
+            ############################################################################################################
             # Distance is neither increasing nor decreasing
-            else:
-                r = r - 1
+            elif abs(current_distance - self.previous_distance) < 0.0001:
+                if action == 3:
+                    r = -1  # Action is stop, punish
+                if action == 1 or action == 2:
+                    # Action is turning
+                    # Reward based on decreasing angle is applied when the robot is close to the target, i.e. on the same
+                    # grid map cell. This means that no obstacles are in between.
+                    robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
+                    if robot_cell[0] is not None:
+                        if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
+                                self.map.get_cell(robot_cell[0], robot_cell[1]).getDef() == "TARGET":  # NOQA
+                            if self.previous_angle - current_angle > 0.001:
+                                r = 2  # Decreasing angle to target, reward
+                            elif self.previous_angle - current_angle < -0.001:
+                                r = -2  # Increasing angle to target, punish
+
         self.previous_distance = current_distance
+        self.previous_angle = current_angle
 
-        # Reward based on decreasing angle is applied only when the robot is close to the target, i.e. on the same
-        # grid map cell. This means that no obstacles are in between.
-        robot_cell = self.map.get_grid_coordinates(self.robot.getPosition()[0], self.robot.getPosition()[1])
-        if robot_cell[0] is not None:
-            if not self.map.is_empty(robot_cell[0], robot_cell[1]) and \
-                    self.map.get_cell(robot_cell[0], robot_cell[1]).getDef()[0] == "TARGET":  # NOQA
-                # Decreasing angle to target reward
-                if current_angle - self.previous_angle < -0.001:
-                    r = r + 2
-                elif current_angle - self.previous_angle > 0.001:
-                    r = r - 2
-                self.previous_angle = current_angle
-
-        # The following section checks whether the robot is on target and facing it
-        # for a length of time.
-        # If robot is on target and facing it
-        if get_distance_from_target(self.robot, self.target) < self.on_target_threshold and \
-                get_angle_from_target(self.robot, self.target, is_abs=True) < self.facing_target_threshold:
-            # Count to limit
-            if self.on_target_counter >= self.on_target_limit:
-                # Robot is on target for a number of steps so reward it and reset target to a new position
-                self.trigger_done = True
-                r += 1000
-                self.on_target_counter = 0
-            else:
-                self.on_target_counter += 1
-        # If either distance or angle becomes larger than thresholds, reset counter
-        if get_distance_from_target(self.robot, self.target) > self.on_target_threshold or \
-                get_angle_from_target(self.robot, self.target, is_abs=True) > self.facing_target_threshold:
-            self.on_target_counter = 0
-
+        ################################################################################################################
         # Check if the robot has collided with anything
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             self.trigger_done = True
@@ -301,6 +314,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: True if task is solved, False otherwise
         :rtype: bool
         """
+        # TODO redo this
         avg_score_limit = (1317.196 * self.map.size()[0] + 4820.286) / 2
 
         if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
