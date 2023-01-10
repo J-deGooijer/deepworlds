@@ -520,10 +520,7 @@ class Grid:
         # Make sure the random selection is in range and cell is not occupied
         for tries in range(100):
             how_near = random.randrange(min_distance, max_distance + 1)
-            near_coords = [(x + how_near, y), (x - how_near, y), (x, y + how_near), (x, y - how_near),
-                           (x + how_near, y + how_near), (x - how_near, y - how_near),
-                           (x - how_near, y + how_near), (x + how_near, y - how_near)]
-            coords = random.choice(near_coords)
+            coords = self.get_random_neighbor(x, y, how_near)
             if not self.is_in_range(coords[0], coords[1]):
                 continue  # Selected coordinates are outside grid range
 
@@ -531,6 +528,20 @@ class Grid:
                 return True  # Return success, the node was added
 
         return False  # Failed to insert near
+
+    def get_random_neighbor(self, x, y, d):
+        neighbors = []
+        rows = self.size()[0]
+        cols = self.size()[1]
+        for i in range(-d, d + 1):
+            for j in range(-d, d + 1):
+                if i == 0 and j == 0:
+                    continue
+                if 0 <= x + i < rows and 0 <= y + j < cols:
+                    neighbors.append((x + i, y + j))
+        if len(neighbors) == 0:
+            return None
+        return random.choice(neighbors)
 
     def get_world_coordinates(self, x, y):
         if self.is_in_range(x, y):
