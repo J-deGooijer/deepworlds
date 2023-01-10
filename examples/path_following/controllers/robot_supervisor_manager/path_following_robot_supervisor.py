@@ -211,10 +211,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 if self.previous_angle - current_angle > 0.001:
                     r = 10  # Decreasing angle to target, reward
                 elif self.previous_angle - current_angle < -0.001:
-                    r = -10  # Increasing angle to target, punish
+                    r = -20  # Increasing angle to target, punish
             else:
                 # Action is either move forward or stop, punish
-                r = -10
+                r = -15
         ################################################################################################################
         # "Not on target case" case
         else:
@@ -224,8 +224,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             if self.previous_distance - current_distance > 0.0001:
                 if action == 0:  # Moving forward
                     r = 2
-                    if current_angle < self.facing_target_threshold:
-                        r = r + 3  # Moving directly towards target, reward more
+                    # if current_angle < self.facing_target_threshold:
+                    #     r = r + 3  # Moving directly towards target, reward more
             ############################################################################################################
             # Distance is increasing
             elif self.previous_distance - current_distance < -0.0001:
