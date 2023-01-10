@@ -22,7 +22,22 @@ class PPOAgent:
     """
 
     def __init__(self, num_of_inputs, num_of_actor_outputs, clip_param=0.2, max_grad_norm=0.5, ppo_update_iters=5,
-                 batch_size=8, gamma=0.99, use_cuda=False, actor_lr=0.001, critic_lr=0.003, seed=None):
+                 batch_size=8, gamma=0.995, use_cuda=False, actor_lr=3e-4, critic_lr=3e-4, seed=None):
+        """
+        Clip parameter (eps): This parameter controls the amount that the policy can change during each update.
+        A small value for eps (e.g. 0.1 or 0.2) will make the update process more conservative, while a larger value
+        (e.g. 0.5 or 0.8) will make the update process more aggressive. You can start with a value of 0.2 and
+        adjust it as needed.
+
+        Max grad norm: This parameter controls the maximum norm of the gradient used to update the policy.
+        A larger value will allow the gradient to be larger, while a smaller value will make the updates more conservative.
+        A good starting point can be 0.5, this will allow the gradients to be large,
+        but not too large that they cause oscillations.
+
+        PPO update iterations: This parameter controls the number of times the policy is updated during each iteration
+        of the algorithm. More update steps means more fine-tuning of the policy, but it will also take more computational
+        resources. You can start with 5 update steps and adjust as needed.
+        """
         super().__init__()
         if seed is not None:
             manual_seed(seed)
@@ -179,15 +194,13 @@ class PPOAgent:
 class Actor(nn.Module):
     def __init__(self, num_of_inputs, num_of_outputs):
         super(Actor, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 10)
-        self.fc2 = nn.Linear(10, 20)
-        self.fc3 = nn.Linear(20, 10)
-        self.action_head = nn.Linear(10, num_of_outputs)
+        self.fc1 = nn.Linear(num_of_inputs, 32)
+        self.fc2 = nn.Linear(32, 64)
+        self.action_head = nn.Linear(64, num_of_outputs)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
         action_prob = F.softmax(self.action_head(x), dim=1)
         return action_prob
 
@@ -195,14 +208,12 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, num_of_inputs):
         super(Critic, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 10)
-        self.fc2 = nn.Linear(10, 20)
-        self.fc3 = nn.Linear(20, 10)
-        self.state_value = nn.Linear(10, 1)
+        self.fc1 = nn.Linear(num_of_inputs, 64)
+        self.fc2 = nn.Linear(64, 128)
+        self.state_value = nn.Linear(128, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
         value = self.state_value(x)
         return value
