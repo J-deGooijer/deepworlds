@@ -4,6 +4,7 @@ import numpy as np
 from gym.spaces import Box, Discrete
 from deepbots.supervisor import RobotSupervisorEnv
 from utilities import normalize_to_range, get_distance_from_target, get_angle_from_target
+from controller import Supervisor, Keyboard
 
 
 class PathFollowingRobotSupervisor(RobotSupervisorEnv):
@@ -139,6 +140,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.min_target_dist = 1
         self.max_target_dist = 1  # The maximum (manhattan) distance of the target length allowed, starts at 1
 
+        self.keyboard = Keyboard()
+        self.keyboard.enable(self.timestep)
+
     def set_difficulty(self, difficulty_dict):
         self.number_of_obstacles = difficulty_dict["number_of_obstacles"]
         self.min_target_dist = difficulty_dict["min_target_dist"]
@@ -224,7 +228,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Distance is decreasing
             if self.previous_distance - current_distance > 0.0001:
                 if action == 0:  # Moving forward
-                    r = 2
+                    r = 5
                     # if current_angle < self.facing_target_threshold:
                     #     r = r + 3  # Moving directly towards target, reward more
             ############################################################################################################
@@ -241,7 +245,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     # Action is turning and no obstacle is detected, reward turning to target
                     if sum(self.obs[2:]) < 0.1:
                         if self.previous_angle - current_angle > 0.001:
-                            r = 2  # Decreasing angle to target, reward
+                            r = 1  # Decreasing angle to target, reward
                         elif self.previous_angle - current_angle < -0.001:
                             r = -4  # Increasing angle to target, punish
         self.previous_distance = current_distance
@@ -326,6 +330,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         return [0.0 for _ in range(self.observation_space.shape[0])]
 
+    def step(self, action):
+        action = self.apply_action(action)
+        if super(Supervisor, self).step(self.timestep) == -1:
+            exit()
+
+        return (
+            self.get_observations(),
+            self.get_reward(action),
+            self.is_done(),
+            self.get_info(),
+        )
+
     def apply_action(self, action):
         """
         This method gets an integer action value [0, 1, 2, 3] where each value
@@ -339,6 +355,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        key = self.keyboard.getKey()
+        if key == ord("W"):
+            action = 0
+        if key == ord("A"):
+            action = 1
+        if key == ord("D"):
+            action = 2
+        if key == ord("S"):
+            action = 3
+
         if action == 0:  # Move forward
             gas = 1.0
             wheel = 0.0
@@ -362,6 +388,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Apply motor speeds
         self.set_velocity(motor_speeds[0], motor_speeds[1])
+        return action
 
     def set_velocity(self, v_left, v_right):
         """
