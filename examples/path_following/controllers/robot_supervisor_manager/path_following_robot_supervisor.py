@@ -48,8 +48,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         super().__init__()
         # Set up gym spaces
-        self.observation_space = Box(low=np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                                     high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+        self.observation_space = Box(low=np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                                     high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
                                      dtype=np.float64)
         self.action_space = Discrete(4)
 
@@ -59,7 +59,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Distance sensors are used for the robot to perceive obstacles
         self.distance_sensors = []
         try:
-            for ds_name in ["outer_left", "inner_left", "center", "inner_right", "outer_right"]:
+            for ds_name in ["left", "outer_left", "inner_left", "center", "inner_right", "outer_right", "right"]:
                 self.distance_sensors.append(self.getDevice("ds_" + ds_name))
                 self.distance_sensors[-1].enable(self.timestep)  # NOQA
 
