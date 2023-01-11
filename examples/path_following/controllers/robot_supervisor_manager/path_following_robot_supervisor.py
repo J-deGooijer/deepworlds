@@ -90,7 +90,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.target = self.getFromDef("TARGET")
 
         # Set up misc
-        self.steps_per_episode = 5000
+        self.steps_per_episode = 10000
         self.episode_score = 0
         self.episode_score_list = []
         self.obs = []
