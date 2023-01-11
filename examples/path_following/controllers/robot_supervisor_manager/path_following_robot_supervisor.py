@@ -421,7 +421,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
-        action = 3
         key = self.keyboard.getKey()
         if key == ord("W"):
             action = 0
