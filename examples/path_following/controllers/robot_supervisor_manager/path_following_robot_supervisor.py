@@ -179,7 +179,71 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.obs.extend(ds_values)
         return self.obs
 
-    def get_reward(self, action):
+    def get_reward(self, state, action, next_state):  # NOQA
+        current_distance = get_distance_from_target(self.robot, self.target)
+        current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
+
+        dist_target = self.previous_distance
+        dist_target_prime = current_distance
+
+        angles = self.previous_angle
+        angles_prime = current_distance
+
+        distances = state[3:]
+        distances_prime = next_state[3:]
+    
+        # Reward for progress towards the target
+
+        progress_reward = round((dist_target - dist_target_prime)/dist_target, 5) if dist_target != 0 else 0.0
+
+        # Reward for avoiding obstacles
+        obstacle_reward = 0
+        max_dist_value = 0.25  # Higher values mean closer obstacles
+        for d, d_prime in zip(distances, distances_prime):
+            if d >= max_dist_value and d_prime >= max_dist_value:
+                obstacle_reward += d - d_prime
+        obstacle_reward /= len(distances)
+        obstacle_reward = round(obstacle_reward, 5)
+        
+        # Total reward
+        total_reward = progress_reward + obstacle_reward   # + smoothness_reward + speed_reward
+
+        if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
+            # When on target and facing it, action should be "stop"
+            if action != 3:
+                # Action is not "stop", punish
+                total_reward = -1
+                self.on_target_counter = 0  # If on target and facing but not stopping, reset counter
+            else:
+                # Action is "stop", large reward
+                total_reward = 1
+                # Count to limit to terminate episode
+                if self.on_target_counter >= self.on_target_limit:
+                    # Robot is on target for a number of steps and is stopping, so reward it and terminate episode
+                    self.trigger_done = True
+                    self.on_target_counter = 0
+                    total_reward = 100
+                else:
+                    self.on_target_counter += 1  # Limit is not reached, continue counting
+        else:
+            self.on_target_counter = 0  # If either distance or angle is larger than thresholds, reset counter
+
+        # Check if the robot has collided with anything
+        if self.touch_sensor.getValue() == 1.0:  # NOQA
+            self.trigger_done = True
+            total_reward = -100
+
+        if abs(total_reward) <= 5e-5:
+            total_reward = 0.0
+
+        if total_reward != 0.0:
+            print(total_reward)
+
+        self.previous_distance = current_distance
+        self.previous_angle = current_angle
+        return total_reward
+
+    def get_reward_(self, action):
         """
         TODO docstring
         :param action:
@@ -331,13 +395,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         return [0.0 for _ in range(self.observation_space.shape[0])]
 
     def step(self, action):
+        prev_observation = self.get_observations()
         action = self.apply_action(action)
+
         if super(Supervisor, self).step(self.timestep) == -1:
             exit()
 
+        observation = self.get_observations()
+        reward = self.get_reward(prev_observation, action, observation)
+
         return (
-            self.get_observations(),
-            self.get_reward(action),
+            observation,
+            reward,
             self.is_done(),
             self.get_info(),
         )
@@ -355,6 +424,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        action = 3
         key = self.keyboard.getKey()
         if key == ord("W"):
             action = 0
@@ -364,6 +434,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             action = 2
         if key == ord("S"):
             action = 3
+        if key == ord("X"):
+            gas = -1.0
+            wheel = 0.0
+            action = 99
 
         if action == 0:  # Move forward
             gas = 1.0
@@ -374,7 +448,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         elif action == 2:  # Turn right
             gas = 0.0
             wheel = 1.0
-        else:  # Don't move
+        elif action == 3:  # Don't move
             gas = 0.0
             wheel = 0.0
 
@@ -517,28 +591,25 @@ class Grid:
             self.add_random(node)
 
     def add_near(self, x, y, node, min_distance=1, max_distance=1):
-        # Make sure the random selection is in range and cell is not occupied
-        for tries in range(100):
-            how_near = random.randrange(min_distance, max_distance + 1)
-            coords = self.get_random_neighbor(x, y, how_near)
-            if not self.is_in_range(coords[0], coords[1]):
-                continue  # Selected coordinates are outside grid range
-
-            if self.add_cell(coords[0], coords[1], node):
+        # Make sure the randomly selected cell is not occupied
+        for tries in range(self.size()[0] * self.size()[1]):
+            coords = self.get_random_neighbor(x, y, min_distance, max_distance)
+            if coords and self.add_cell(coords[0], coords[1], node):
                 return True  # Return success, the node was added
-
         return False  # Failed to insert near
 
-    def get_random_neighbor(self, x, y, d):
+    def get_random_neighbor(self, x, y, d_min, d_max):
         neighbors = []
         rows = self.size()[0]
         cols = self.size()[1]
-        for i in range(-d, d + 1):
-            for j in range(-d, d + 1):
+        for i in range(-d_max, d_max + 1):
+            for j in range(-d_max, d_max + 1):
                 if i == 0 and j == 0:
                     continue
                 if 0 <= x + i < rows and 0 <= y + j < cols:
-                    neighbors.append((x + i, y + j))
+                    distance = abs(x+i-x) + abs(y+j-y)
+                    if d_min <= distance <= d_max:
+                        neighbors.append((x + i, y + j))
         if len(neighbors) == 0:
             return None
         return random.choice(neighbors)
