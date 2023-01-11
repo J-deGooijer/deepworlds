@@ -186,14 +186,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         dist_target = self.previous_distance
         dist_target_prime = current_distance
 
-        angles = self.previous_angle
-        angles_prime = current_distance
+        angle = self.previous_angle
+        angle_prime = current_angle
 
         distances = state[3:]
         distances_prime = next_state[3:]
     
         # Reward for progress towards the target
-
         progress_reward = round((dist_target - dist_target_prime)/dist_target, 5) if dist_target != 0 else 0.0
 
         # Reward for avoiding obstacles
@@ -204,9 +203,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 obstacle_reward += d - d_prime
         obstacle_reward /= len(distances)
         obstacle_reward = round(obstacle_reward, 5)
+
+        # Reward for smooth movement
+        smoothness_reward = -0.5 * np.sum((angle-angle_prime)**2)
+
+        # Reward for fast movements
+        # speed_reward = ((current_distance - self.previous_distance)**2)/self.timestep
         
         # Total reward
-        total_reward = progress_reward + obstacle_reward   # + smoothness_reward + speed_reward
+        total_reward = progress_reward + obstacle_reward + smoothness_reward  # + speed_reward
 
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
             # When on target and facing it, action should be "stop"
