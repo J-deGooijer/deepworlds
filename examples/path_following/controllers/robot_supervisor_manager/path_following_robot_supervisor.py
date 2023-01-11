@@ -236,9 +236,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if abs(total_reward) <= 5e-5:
             total_reward = 0.0
 
-        if total_reward != 0.0:
-            print(total_reward)
-
         self.previous_distance = current_distance
         self.previous_angle = current_angle
         return total_reward
