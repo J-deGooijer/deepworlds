@@ -15,7 +15,7 @@ def run():
 
     episode_count = 0
     episode_limit = 1_000_000
-    episodes_per_checkpoint = 200
+    episodes_per_checkpoint = 100
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
     difficulty = {
