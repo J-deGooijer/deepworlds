@@ -102,7 +102,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.on_target_counter = 0
-        self.on_target_limit = 100  # The number of steps robot should be on target before the target moves
+        self.on_target_limit = 5  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
 
         # Map
@@ -216,8 +216,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
             # When on target and facing it, action should be "stop"
             if action != 3:
-                # Action is not "stop", punish
-                total_reward = -1
                 self.on_target_counter = 0  # If on target and facing but not stopping, reset counter
             else:
                 # Action is "stop", large reward
