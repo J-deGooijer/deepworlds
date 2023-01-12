@@ -43,7 +43,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self):
+    def __init__(self, steps_per_episode=10000,
+                 on_target_threshold=0.1, facing_target_threshold=np.pi / 16, on_target_limit=5,
+                 dist_sensors_thresholds=None, dist_sensors_weights=None,
+                 map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
         """
@@ -73,7 +76,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
         # this loop grabs the first distance sensor child of the robot and gets the max value it can output
-        # from its lookup table. This is used for normalizing the observation
+        # from its lookup table. This is used for normalizing the observation.
         self.ds_max = -1
         for childNodeIndex in range(self.robot.getField("children").getCount()):
             child = self.robot.getField("children").getMFNode(childNodeIndex)  # NOQA
@@ -90,37 +93,43 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.target = self.getFromDef("TARGET")
 
         # Set up misc
-        self.steps_per_episode = 10000
+        self.steps_per_episode = steps_per_episode
         self.episode_score = 0
         self.episode_score_list = []
-        self.obs = []
 
         # Target-related stuff
         self.target_position = [0.0, 0.0]
-        self.on_target_threshold = 0.1  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = np.pi / 16  # Threshold on which robot is considered facing the target
+        self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
+        self.facing_target_threshold = facing_target_threshold  # Threshold on which robot is considered facing the target
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        # dist_threshold defines the minimum values that should be read from the sensors. If the values are smaller and
-        # the robot keeps moving forward it is guaranteed to collide.
-        self.dist_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
+        # dist_sensors_thresholds defines the minimum values that should be read from the sensors.
+        # If the values are smaller than the default and  the robot keeps moving forward it is guaranteed to collide.
+        if dist_sensors_thresholds is None:
+            self.dist_sensors_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
         # The weights make the side sensors less critical for the final distance sensor reward
-        self.dist_sensors_weights = [0.05, 0.1, 0.15, 0.4, 0.15, 0.1, 0.05]
+        if dist_sensors_weights is None:
+            self.dist_sensors_weights = [1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0]
+        # Normalize weights to add up to 1
+        self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
 
         self.on_target_counter = 0
-        self.on_target_limit = 5  # The number of steps robot should be on target before the target moves
+        self.on_target_limit = on_target_limit  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
 
         # Map
-        width, height = 7, 7
-        cell_size = [0.5, 0.5]
+        self.map_width, self.map_height = map_width, map_height
+        if cell_size is None:
+            self.cell_size = [0.5, 0.5]
         # Center map to (0, 0)
-        origin = [-(width // 2) * cell_size[0], (height // 2) * cell_size[1]]
-        self.map = Grid(width, height, origin, cell_size)
+        origin = [-(self.map_width // 2) * self.cell_size[0], (self.map_height // 2) * self.cell_size[1]]
+        self.map = Grid(self.map_width, self.map_height, origin, self.cell_size)
         # Find diagonal distance on the map which is the max distance between any two map cells
-        dx = self.map.get_world_coordinates(0, 0)[0] - self.map.get_world_coordinates(width - 1, height - 1)[0]  # NOQA
-        dy = self.map.get_world_coordinates(0, 0)[1] - self.map.get_world_coordinates(width - 1, height - 1)[1]  # NOQA
+        dx = self.map.get_world_coordinates(0, 0)[0] - self.map.get_world_coordinates(self.map_width - 1,  # NOQA
+                                                                                      self.map_height - 1)[0]  # NOQA
+        dy = self.map.get_world_coordinates(0, 0)[1] - self.map.get_world_coordinates(self.map_width - 1,  # NOQA
+                                                                                      self.map_height - 1)[1]  # NOQA
         self.max_target_distance = np.sqrt(dx * dx + dy * dy)
 
         # Obstacle references
@@ -176,15 +185,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
         tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 8)
-        self.obs = [tar_d, tar_a]
+        obs = [tar_d, tar_a]
 
         # Add distance sensor values
         ds_values = []
         for ds in self.distance_sensors:
             ds_values.append(ds.getValue())  # NOQA
             ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0), 8)
-        self.obs.extend(ds_values)
-        return self.obs
+        obs.extend(ds_values)
+        return obs
 
     def get_reward(self, action):
         current_distance = get_distance_from_target(self.robot, self.target)
@@ -212,7 +221,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for i in range(len(self.distance_sensors)):
             current_d = current_dist_sensors[i]
             prev_d = self.previous_dist_sensors[i]
-            sens_threshold = self.dist_thresholds[i]
+            sens_threshold = self.dist_sensors_thresholds[i]
             if current_d < sens_threshold:
                 if current_d - prev_d < -0.0001:
                     obstacle_rewards.append(-1.0)
