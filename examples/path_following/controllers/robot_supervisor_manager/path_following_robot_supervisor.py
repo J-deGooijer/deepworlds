@@ -46,6 +46,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def __init__(self, steps_per_episode=10000,
                  on_target_threshold=0.1, facing_target_threshold=np.pi / 16, on_target_limit=5,
                  dist_sensors_thresholds=None, dist_sensors_weights=None,
+                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
+                 tar_stop_weight=1000.0, collision_weight=100.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -113,6 +115,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.dist_sensors_weights = [1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0]
         # Normalize weights to add up to 1
         self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
+
+        self.reward_weight_dict = {"tar_distance": target_distance_weight, "tar_angle": tar_angle_weight,
+                                   "dist_sensors": dist_sensors_weight, "tar_stop": tar_stop_weight,
+                                   "collision": collision_weight}
 
         self.on_target_counter = 0
         self.on_target_limit = on_target_limit  # The number of steps robot should be on target before the target moves
@@ -204,11 +210,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for decreasing angle to the target
         angle_reward = (self.previous_angle - current_angle) * current_angle
         angle_reward = round(normalize_to_range(abs(angle_reward), 0.0, 0.057, 0.0, 1.0), 4) * np.sign(angle_reward)
-        # Bonus reward for reaching the target and for stopping
-        if action == 3 and current_distance < self.on_target_threshold:
+        # Bonus reward for reaching the target facing it and for stopping
+        if (action == 3
+                and current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold
+                and self.on_target_counter >= self.on_target_limit):
             stop_reward = 1.0
+            self.on_target_counter = 0
             self.trigger_done = True
+        elif current_distance >= self.on_target_threshold:
+            self.on_target_counter = 0
+            stop_reward = 0.0
         else:
+            self.on_target_counter += 1
             stop_reward = 0.0
 
         # Reward for avoiding obstacles
@@ -239,16 +252,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             collision_reward = 0.0
 
         # Total reward
-        wd = 1.0
-        weighted_distance_reward = round(wd * distance_reward, 4)
-        wa = 1.0
-        weighted_angle_reward = round(wa * angle_reward, 4)
-        wds = 10.0
-        weighted_distance_sensor_reward = round(wds * obstacle_reward, 4)
-        ws = 100.0
-        weighted_stop_reward = round(ws * stop_reward, 4)
-        wc = 100.0
-        weighted_collision_reward = round(wc * collision_reward, 4)
+        weighted_distance_reward = round(self.reward_weight_dict["tar_distance"] * distance_reward, 4)
+        weighted_angle_reward = round(self.reward_weight_dict["tar_angle"] * angle_reward, 4)
+        weighted_distance_sensor_reward = round(self.reward_weight_dict["dist_sensors"] * obstacle_reward, 4)
+        weighted_stop_reward = round(self.reward_weight_dict["tar_stop"] * stop_reward, 4)
+        weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
+
         reward = (weighted_distance_reward + weighted_angle_reward +
                   weighted_distance_sensor_reward + weighted_stop_reward +
                   weighted_collision_reward)
