@@ -14,17 +14,32 @@ def run():
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
 
     episode_count = 0
-    episode_limit = 1_000_000
-    episodes_per_checkpoint = 100
+    episode_limit = 10000
+    episodes_per_checkpoint = 250
     solved = False  # Whether the solved requirement is met
     avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
     difficulty = {
-        0: {"number_of_obstacles": 0, "min_target_dist": 1, "max_target_dist": 10},
-        # 250: {"number_of_obstacles": 10, "min_target_dist": 1, "max_target_dist": 3},
-        # 1000: {"number_of_obstacles": 15, "min_target_dist": 2, "max_target_dist": 4},
-        # 1500: {"number_of_obstacles": 15, "min_target_dist": 3, "max_target_dist": 4},
-        # 2000: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 5},
-        # 2500: {"number_of_obstacles": 20, "min_target_dist": 4, "max_target_dist": 6},
+        0: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 1},
+        250: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 2},
+        500: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 3},
+        750: {"number_of_obstacles": 5, "min_target_dist": 2, "max_target_dist": 3},
+        1000: {"number_of_obstacles": 5, "min_target_dist": 2, "max_target_dist": 4},
+        1250: {"number_of_obstacles": 10, "min_target_dist": 3, "max_target_dist": 4},
+        1500: {"number_of_obstacles": 10, "min_target_dist": 3, "max_target_dist": 5},
+        1750: {"number_of_obstacles": 10, "min_target_dist": 4, "max_target_dist": 5},
+        2000: {"number_of_obstacles": 10, "min_target_dist": 4, "max_target_dist": 6},
+        2250: {"number_of_obstacles": 15, "min_target_dist": 5, "max_target_dist": 6},
+        2500: {"number_of_obstacles": 15, "min_target_dist": 5, "max_target_dist": 7},
+        2750: {"number_of_obstacles": 15, "min_target_dist": 6, "max_target_dist": 7},
+        3000: {"number_of_obstacles": 15, "min_target_dist": 6, "max_target_dist": 8},
+        3250: {"number_of_obstacles": 17, "min_target_dist": 7, "max_target_dist": 8},
+        3500: {"number_of_obstacles": 17, "min_target_dist": 7, "max_target_dist": 9},
+        3750: {"number_of_obstacles": 17, "min_target_dist": 8, "max_target_dist": 9},
+        4000: {"number_of_obstacles": 17, "min_target_dist": 8, "max_target_dist": 10},
+        4250: {"number_of_obstacles": 20, "min_target_dist": 9, "max_target_dist": 10},
+        4500: {"number_of_obstacles": 20, "min_target_dist": 9, "max_target_dist": 11},
+        4750: {"number_of_obstacles": 20, "min_target_dist": 10, "max_target_dist": 11},
+        5000: {"number_of_obstacles": 20, "min_target_dist": 10, "max_target_dist": 12},
     }
 
     # Run outer loop until the episodes limit is reached or the task is solved
@@ -59,7 +74,7 @@ def run():
                 solved = env.solved()  # Check whether the task is solved
 
                 # Save agent
-                if (episode_count + 1) % episodes_per_checkpoint == 0:
+                if (episode_count % episodes_per_checkpoint == 0) and episode_count != 0:
                     if not os.path.exists("./checkpoints"):
                         os.mkdir("./checkpoints")
                     agent.save(f"./checkpoints/{episode_count + 1}")
@@ -80,9 +95,9 @@ def run():
         # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
         moving_avg_n = 10
         plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                 "episode", "episode score", "Episode scores over episodes")
+                  "episode", "episode score", "Episode scores over episodes")
         plot_data(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                 "episode", "average episode action probability", "Average episode action probability over episodes")
+                  "episode", "average episode action probability", "Average episode action probability over episodes")
     except Exception as e:
         print("Plotting failed:", e)
 
