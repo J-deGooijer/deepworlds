@@ -217,11 +217,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             stop_reward = 1.0
             self.on_target_counter = 0
             self.trigger_done = True
+        elif (action == 3
+              and current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold):
+            stop_reward = 1.0
+            self.on_target_counter += 1
         elif current_distance >= self.on_target_threshold:
             self.on_target_counter = 0
             stop_reward = 0.0
         else:
-            self.on_target_counter += 1
             stop_reward = 0.0
 
         # Reward for avoiding obstacles
