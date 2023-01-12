@@ -102,7 +102,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        self.dist_threshold = 1.0  # Percentage of the full range of ds that acts as a threshold
+        # dist_threshold defines the minimum values that should be read from the sensors. If the values are smaller and
+        # the robot keeps moving forward it is guaranteed to collide.
+        self.dist_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
+        # The weights make the side sensors less critical for the final distance sensor reward
+        self.dist_sensors_weights = [0.05, 0.1, 0.15, 0.4, 0.15, 0.1, 0.05]
+
         self.on_target_counter = 0
         self.on_target_limit = 5  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
@@ -192,138 +197,57 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         angle_reward = round(normalize_to_range(abs(angle_reward), 0.0, 0.057, 0.0, 1.0), 4) * np.sign(angle_reward)
         # Bonus reward for reaching the target and for stopping
         if action == 3 and current_distance < self.on_target_threshold:
-            stop_reward = 10.0
+            stop_reward = 1.0
             self.trigger_done = True
         else:
             stop_reward = 0.0
 
         # Reward for avoiding obstacles
-        # current_dist_sensors = []  # Values are in range [0, self.ds_max]
-        # for ds in self.distance_sensors:
-        #     current_dist_sensors.append(ds.getValue())  # NOQA
-        #
-        # ds_threshold = self.dist_threshold * self.ds_max
-        # obstacle_reward = 0
-        # for prev_d, current_d in zip(self.previous_dist_sensors, current_dist_sensors):
-        #     if current_d <= ds_threshold and prev_d <= ds_threshold:
-        #         obstacle_reward += current_d - prev_d
-        # obstacle_reward /= len(current_dist_sensors)
-        # r += round(obstacle_reward, 5)
+        # Get all distance sensor values
+        current_dist_sensors = []  # Values are in range [0, self.ds_max]
+        for ds in self.distance_sensors:
+            current_dist_sensors.append(ds.getValue())  # NOQA
+
+        obstacle_rewards = []
+        for i in range(len(self.distance_sensors)):
+            current_d = current_dist_sensors[i]
+            prev_d = self.previous_dist_sensors[i]
+            sens_threshold = self.dist_thresholds[i]
+            if current_d < sens_threshold:
+                if current_d - prev_d < -0.0001:
+                    obstacle_rewards.append(-1.0)
+                    obstacle_rewards[-1] *= self.dist_sensors_weights[i]
+                elif current_d - prev_d > 0.0001:
+                    obstacle_rewards.append(1.0)
+                    obstacle_rewards[-1] *= self.dist_sensors_weights[i]
+        obstacle_reward = sum(obstacle_rewards)
+
+        # Check if the robot has collided with anything
+        if self.touch_sensor.getValue() == 1.0:  # NOQA
+            collision_reward = -1.0
+            self.trigger_done = True
+        else:
+            collision_reward = 0.0
 
         # Total reward
         wd = 1.0
         weighted_distance_reward = round(wd * distance_reward, 4)
         wa = 1.0
         weighted_angle_reward = round(wa * angle_reward, 4)
-        ws = 1.0
+        wds = 10.0
+        weighted_distance_sensor_reward = round(wds * obstacle_reward, 4)
+        ws = 100.0
         weighted_stop_reward = round(ws * stop_reward, 4)
-        # wds = 1.0
-        # weighted_distance_sensor_reward = round(wds * obstacle_reward, 4)
-        reward = weighted_distance_reward + weighted_angle_reward + weighted_stop_reward
-
-        # Check if the robot has collided with anything
-        if self.touch_sensor.getValue() == 1.0:  # NOQA
-            self.trigger_done = True
+        wc = 100.0
+        weighted_collision_reward = round(wc * collision_reward, 4)
+        reward = (weighted_distance_reward + weighted_angle_reward +
+                  weighted_distance_sensor_reward + weighted_stop_reward +
+                  weighted_collision_reward)
 
         self.previous_distance = current_distance
         self.previous_angle = current_angle
-        # self.previous_dist_sensors = current_dist_sensors
+        self.previous_dist_sensors = current_dist_sensors
         return reward
-
-    # def get_reward(self, action):  # NOQA
-    #     """
-    #     TODO docstring
-    #     :param action:
-    #     :return:
-    #     """
-    #     r = 0
-    #     current_distance = get_distance_from_target(self.robot, self.target)
-    #     current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
-    #
-    #     ################################################################################################################
-    #     # "On target and facing it" case
-    #     if current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold:
-    #         # When on target and facing it, action should be "stop"
-    #         if action != 3:
-    #             # Action is not "stop", punish
-    #             r = -10
-    #             self.on_target_counter = 0  # If on target and facing but not stopping, reset counter
-    #         else:
-    #             # Action is "stop", large reward
-    #             r = 100
-    #             # Count to limit to terminate episode
-    #             if self.on_target_counter >= self.on_target_limit:
-    #                 # Robot is on target for a number of steps and is stopping, so reward it and terminate episode
-    #                 self.trigger_done = True
-    #                 self.on_target_counter = 0
-    #                 r += 1000
-    #             else:
-    #                 self.on_target_counter += 1  # Limit is not reached, continue counting
-    #     ################################################################################################################
-    #     # "On target but not facing it" case
-    #     elif current_distance < self.on_target_threshold:
-    #         if action == 1 or action == 2:
-    #             # Reward turning
-    #             if self.previous_angle - current_angle > 0.001:
-    #                 r = 10  # Decreasing angle to target, reward
-    #             elif self.previous_angle - current_angle < -0.001:
-    #                 r = -20  # Increasing angle to target, punish
-    #         else:
-    #             # Action is either move forward or stop, punish
-    #             r = -15
-    #     ################################################################################################################
-    #     # "Not on target case" case
-    #     else:
-    #         self.on_target_counter = 0  # If either distance or angle is larger than thresholds, reset counter
-    #         ############################################################################################################
-    #         # Distance is decreasing
-    #         if self.previous_distance - current_distance > 0.0001:
-    #             if action == 0:  # Moving forward
-    #                 r = 5
-    #                 # if current_angle < self.facing_target_threshold:
-    #                 #     r = r + 3  # Moving directly towards target, reward more
-    #         ############################################################################################################
-    #         # Distance is increasing
-    #         elif self.previous_distance - current_distance < -0.0001:
-    #             if action == 0:
-    #                 r = -10  # Action is moving forward, punish
-    #         ############################################################################################################
-    #         # Distance is neither increasing nor decreasing
-    #         elif abs(current_distance - self.previous_distance) < 0.0001:
-    #             if action == 3:
-    #                 r = -1  # Action is stop, punish
-    #             if action == 1 or action == 2:
-    #                 # Action is turning and no obstacle is detected, reward turning to target
-    #                 if sum(self.obs[2:]) < 0.1:
-    #                     if self.previous_angle - current_angle > 0.001:
-    #                         r = 1  # Decreasing angle to target, reward
-    #                     elif self.previous_angle - current_angle < -0.001:
-    #                         r = -4  # Increasing angle to target, punish
-    #     self.previous_distance = current_distance
-    #     self.previous_angle = current_angle
-    #
-    #     ################################################################################################################
-    #     # Reward for avoiding obstacles
-    #     current_dist_sensors = []  # Values are in range [0, self.ds_max]
-    #     for ds in self.distance_sensors:
-    #         current_dist_sensors.append(ds.getValue())  # NOQA
-    #
-    #     ds_threshold = self.dist_threshold * self.ds_max
-    #     obstacle_reward = 0
-    #     for prev_d, current_d in zip(self.previous_dist_sensors, current_dist_sensors):
-    #         if current_d <= ds_threshold and prev_d <= ds_threshold:
-    #             obstacle_reward += current_d - prev_d
-    #     obstacle_reward /= len(current_dist_sensors)
-    #     r += round(obstacle_reward, 5)
-    #
-    #     self.previous_dist_sensors = current_dist_sensors
-    #
-    #     # Check if the robot has collided with anything
-    #     if self.touch_sensor.getValue() == 1.0:  # NOQA
-    #         self.trigger_done = True
-    #         r = -1000
-    #
-    #     return r
 
     def is_done(self):
         """
