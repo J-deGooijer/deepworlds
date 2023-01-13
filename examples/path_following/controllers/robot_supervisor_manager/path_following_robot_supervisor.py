@@ -216,6 +216,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         angle_reward = (self.previous_angle - current_angle) * current_angle
         angle_reward = round(normalize_to_range(abs(angle_reward), 0.0, 0.057, 0.0, 1.0), 4) * np.sign(angle_reward)
         # Bonus reward for reaching the target facing it and for stopping
+        stop_reward = 0.0
         if (action == 3
                 and current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold
                 and self.on_target_counter >= self.on_target_limit):
@@ -226,11 +227,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
               and current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold):
             stop_reward = 1.0
             self.on_target_counter += 1
-        elif current_distance >= self.on_target_threshold:
+        elif current_distance >= self.on_target_threshold or current_angle >= self.facing_target_threshold:
             self.on_target_counter = 0
-            stop_reward = 0.0
-        else:
-            stop_reward = 0.0
 
         # Reward for avoiding obstacles
         # Get all distance sensor values
