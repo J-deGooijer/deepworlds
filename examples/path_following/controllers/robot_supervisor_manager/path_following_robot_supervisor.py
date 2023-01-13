@@ -44,7 +44,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, steps_per_episode=10000,
-                 on_target_threshold=0.1, facing_target_threshold=np.pi / 4, on_target_limit=5,
+                 on_target_threshold=0.15, on_target_limit=5,
                  dist_sensors_thresholds=None, dist_sensors_thresholds_multipliers=None, dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
                  tar_stop_weight=1000.0, collision_weight=100.0,
@@ -102,7 +102,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Target-related stuff
         self.target_position = [0.0, 0.0]
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
-        self.facing_target_threshold = facing_target_threshold  # Threshold on which robot is considered facing the target
         self.previous_distance = 0.0
         self.previous_angle = 0.0
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
@@ -215,10 +214,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for decreasing angle to the target
         angle_reward = (self.previous_angle - current_angle) * current_angle
         angle_reward = round(normalize_to_range(abs(angle_reward), 0.0, 0.057, 0.0, 1.0), 4) * np.sign(angle_reward)
-        # Bonus reward for reaching the target facing it and for stopping
+        # Bonus reward for reaching the target and for stopping
         stop_reward = 0.0
-        if (action == 3
-                and current_distance < self.on_target_threshold and current_angle < self.facing_target_threshold):
+        if action == 3 and current_distance < self.on_target_threshold:
             if self.on_target_counter >= self.on_target_limit:
                 stop_reward = 1.0
                 self.on_target_counter = 0
@@ -368,7 +366,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
-        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
