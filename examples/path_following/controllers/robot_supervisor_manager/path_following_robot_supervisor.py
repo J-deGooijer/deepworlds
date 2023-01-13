@@ -372,7 +372,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
-        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
