@@ -224,7 +224,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.on_target_counter = 0
                 self.trigger_done = True
             else:
-                stop_reward = 1.0
                 self.on_target_counter += 1
         else:
             self.on_target_counter = 0
@@ -369,6 +368,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
