@@ -47,7 +47,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.1, facing_target_threshold=np.pi / 4, on_target_limit=5,
                  dist_sensors_thresholds=None, dist_sensors_thresholds_multipliers=None, dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=1000.0, collision_weight=1000.0,
+                 tar_stop_weight=1000.0, collision_weight=100.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -109,13 +109,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # dist_sensors_thresholds defines the minimum values that should be read from the sensors.
         # If the values are smaller than the default and  the robot keeps moving forward it is guaranteed to collide.
         if dist_sensors_thresholds_multipliers is None:
-            dist_sensors_thresholds_multipliers = [1.2, 1.1, 0.4, 0.2, 0.4, 1.1, 1.2]
+            dist_sensors_thresholds_multipliers = [1.2, 0.81, 0.46, 0.2, 0.46, 0.81, 1.2]
         if dist_sensors_thresholds is None:
             self.dist_sensors_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
         self.dist_sensors_thresholds = [self.dist_sensors_thresholds[i] * dist_sensors_thresholds_multipliers[i]
                                         for i in range(len(self.dist_sensors_thresholds))]
 
-        # The weights make the side sensors less critical for the final distance sensor reward
+        # The weights can change how critical each sensor is for the final distance sensor reward
         if dist_sensors_weights is None:
             self.dist_sensors_weights = [1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0]
         # Normalize weights to add up to 1
@@ -245,10 +245,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             sens_threshold = self.dist_sensors_thresholds[i]
             if current_d < sens_threshold:
                 if current_d - prev_d < -0.0001:
-                    obstacle_rewards.append(-1.0)
+                    obstacle_rewards.append(normalize_to_range(current_d, 0.0, self.ds_max, -1.0, 0.0))
                     obstacle_rewards[-1] *= self.dist_sensors_weights[i]
                 elif current_d - prev_d > 0.0001:
-                    obstacle_rewards.append(1.0)
+                    obstacle_rewards.append(normalize_to_range(current_d, 0.0, self.ds_max, 1.0, 0.0))
                     obstacle_rewards[-1] *= self.dist_sensors_weights[i]
         obstacle_reward = sum(obstacle_rewards)
 
@@ -372,6 +372,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
