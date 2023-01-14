@@ -111,11 +111,12 @@ def run():
     state = env.reset()
     env.episode_score = 0
     while True:
-        selected_action, action_prob = agent.work(state, type_="selectActionMax")
-        state, reward, done, _ = env.step(selected_action)
-        env.episode_score += reward  # Accumulate episode reward
+        for step in range(env.steps_per_episode):
+            selected_action, action_prob = agent.work(state, type_="selectActionMax")
+            state, reward, done, _ = env.step(selected_action)
+            env.episode_score += reward  # Accumulate episode reward
 
-        if done:
-            print("Reward accumulated =", env.episode_score)
-            env.episode_score = 0
-            state = env.reset()
+            if done or step == env.steps_per_episode - 1:
+                print("Reward accumulated =", env.episode_score)
+                env.episode_score = 0
+                state = env.reset()
