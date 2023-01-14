@@ -212,8 +212,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for decreasing distance to the target
         distance_reward = round(normalize_to_range(self.previous_distance - current_distance, -0.0013, 0.0013, -1.0, 1.0), 2)
         # Reward for decreasing angle to the target
-        angle_reward = (self.previous_angle - current_angle) * current_angle
-        angle_reward = round(normalize_to_range(abs(angle_reward), 0.0, 0.057, 0.0, 1.0), 4) * np.sign(angle_reward)
+        if (self.previous_angle - current_angle) > 0.001:
+            angle_reward = 1.0
+        elif (self.previous_angle - current_angle) < -0.001:
+            angle_reward = -1.0
+        else:
+            angle_reward = 0.0
+
         # Bonus reward for reaching the target and for stopping
         stop_reward = 0.0
         if action == 3 and current_distance < self.on_target_threshold:
@@ -373,7 +378,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
-
+        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
