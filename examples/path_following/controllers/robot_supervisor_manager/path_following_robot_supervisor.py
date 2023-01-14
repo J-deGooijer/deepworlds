@@ -210,7 +210,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
 
         # Reward for decreasing distance to the target
-        distance_reward = round(normalize_to_range(self.previous_distance - current_distance, -0.0013, 0.0013, -1.0, 1.0), 2)
+        distance_reward = round(normalize_to_range(self.previous_distance - current_distance,
+                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
         # Reward for decreasing angle to the target
         if (self.previous_angle - current_angle) > 0.001:
             angle_reward = 1.0
@@ -261,23 +262,29 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         else:
             collision_reward = 0.0
 
-        # Total reward
+        # Total reward calculation
         weighted_distance_reward = round(self.reward_weight_dict["tar_distance"] * distance_reward, 4)
         weighted_angle_reward = round(self.reward_weight_dict["tar_angle"] * angle_reward, 4)
         weighted_distance_sensor_reward = round(self.reward_weight_dict["dist_sensors"] * obstacle_reward, 4)
         weighted_stop_reward = round(self.reward_weight_dict["tar_stop"] * stop_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
+        # Baseline reward is distance and angle to target
         reward = weighted_distance_reward + weighted_angle_reward
+        # If there's any reward coming from the distance sensors, i.e. moving close to an obstacle
         if weighted_distance_sensor_reward != 0.0:
             if np.sign(reward) == np.sign(weighted_distance_sensor_reward):
+                # If distance and angle reward is same sign as the distance sensor reward add them all together
                 reward += weighted_distance_sensor_reward
             else:
+                # Otherwise only avoiding obstacle reward is used
                 reward = weighted_distance_sensor_reward
+        # Stop reward overrides other rewards if robot is within target threshold
+        if current_distance < self.on_target_threshold:
+            reward = weighted_stop_reward
+        # Collision reward overrides all other rewards, because it means the robot has collided with an obstacle
         if weighted_collision_reward != 0.0:
             reward = weighted_collision_reward
-        if weighted_stop_reward != 0.0:
-            reward = weighted_stop_reward
 
         self.previous_distance = current_distance
         self.previous_angle = current_angle
