@@ -367,12 +367,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def apply_action(self, action):
         """
-        This method gets an integer action value [0, 1, 2, 3] where each value
+        This method gets an integer action value [0, 1, 2, 3, 4] where each value
         corresponds to an action:
         0: Move forward
         1: Turn left
         2: Turn right
         3: Stop
+        4: Move backwards
 
         :param action: The action to execute
         :type action: int
