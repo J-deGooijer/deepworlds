@@ -260,9 +260,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_stop_reward = round(self.reward_weight_dict["tar_stop"] * stop_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
-        reward = (weighted_distance_reward + weighted_angle_reward +
-                  weighted_distance_sensor_reward + weighted_stop_reward +
-                  weighted_collision_reward)
+        reward = weighted_distance_reward + weighted_angle_reward
+        if weighted_distance_sensor_reward != 0.0:
+            if np.sign(reward) == np.sign(weighted_distance_sensor_reward):
+                reward += weighted_distance_sensor_reward
+            else:
+                reward = weighted_distance_sensor_reward
+        if weighted_collision_reward != 0.0:
+            reward = weighted_collision_reward
+        if weighted_stop_reward != 0.0:
+            reward = weighted_stop_reward
 
         self.previous_distance = current_distance
         self.previous_angle = current_angle
@@ -366,6 +373,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
