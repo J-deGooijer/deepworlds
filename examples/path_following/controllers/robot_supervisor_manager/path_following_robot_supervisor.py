@@ -221,13 +221,17 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Bonus reward for reaching the target and for stopping
         stop_reward = 0.0
-        if action == 3 and current_distance < self.on_target_threshold:
-            if self.on_target_counter >= self.on_target_limit:
-                stop_reward = 1.0
-                self.on_target_counter = 0
-                self.trigger_done = True
+        if current_distance < self.on_target_threshold:
+            if action == 3:
+                if self.on_target_counter >= self.on_target_limit:
+                    stop_reward = 1.0
+                    self.on_target_counter = 0
+                    self.trigger_done = True
+                else:
+                    self.on_target_counter += 1
             else:
-                self.on_target_counter += 1
+                self.on_target_counter = 0
+                stop_reward = -1.0
         else:
             self.on_target_counter = 0
 
