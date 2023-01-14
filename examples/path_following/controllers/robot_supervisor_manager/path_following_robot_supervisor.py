@@ -57,7 +57,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.observation_space = Box(low=np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                                      high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
                                      dtype=np.float64)
-        self.action_space = Discrete(4)
+        self.action_space = Discrete(5)
 
         # Set up various robot components
         self.robot = self.getSelf()
@@ -390,9 +390,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if key == ord("S"):
             action = 3
         if key == ord("X"):
-            gas = -1.0
-            wheel = 0.0
-            action = 99
+            action = 4
 
         if action == 0:  # Move forward
             gas = 1.0
@@ -405,6 +403,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             wheel = 1.0
         elif action == 3:  # Don't move
             gas = 0.0
+            wheel = 0.0
+        elif action == 4:  # Move backwards
+            gas = -1.0
             wheel = 0.0
 
         # Apply gas to both motor speeds, add turning rate to one, subtract from other
