@@ -74,7 +74,9 @@ def run():
                 solved = env.solved()  # Check whether the task is solved
 
                 # Save agent
-                if (episode_count % episodes_per_checkpoint == 0) and episode_count != 0:
+                if episode_count % episodes_per_checkpoint == 0 \
+                        and episode_count != 0 \
+                        or episode_count == episode_limit - 1:
                     if not os.path.exists("./checkpoints"):
                         os.mkdir("./checkpoints")
                     agent.save(f"./checkpoints/{episode_count}")
