@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.4348108727552147 -0.4358794708169756 -0.7880029136076603 4.477995550674653
-  position 0.43049485715935293 -5.326490918986583 8.58459463626164
+  orientation -0.4241945992979554 0.43310930668739117 0.7952831385030203 1.777566266183108
+  position 0.4934707488102471 -6.8744053034799455 10.112320674742453
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 8.859277744181285e-33 0.06 1.396909999999998e-17
-        rotation 1 4.477544827806127e-09 -4.477557800671242e-09 1.5707999999995352
+        translation 1.0014835710813626e-32 0.06 1.3969099999999985e-17
+        rotation 1 4.4775446511710496e-09 -4.477557898801839e-09 1.5707999999995352
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 1.232595164407831e-32 -0.06 4.501310000000003e-17
-        rotation 1 -1.2149046964318204e-09 1.21489904410935e-09 1.5707999999995454
+        translation 1.232595164407831e-32 -0.06 4.501310000000005e-17
+        rotation 1 -1.2149043824139056e-09 1.2148990441093504e-09 1.570799999999545
         children [
           USE WHEEL
         ]
@@ -137,8 +137,7 @@ DEF ROBOT Robot {
       name "ds_left"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.2 20 0
       ]
     }
     DistanceSensor {
@@ -147,8 +146,7 @@ DEF ROBOT Robot {
       name "ds_outer_left"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.229 22.9 0
       ]
     }
     DistanceSensor {
@@ -157,8 +155,7 @@ DEF ROBOT Robot {
       name "ds_inner_left"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.4 40 0
       ]
     }
     DistanceSensor {
@@ -179,7 +176,7 @@ DEF ROBOT Robot {
       lookupTable [
         0.02 0 0
         0.1 10 0
-        0.5 50 0
+        0.35 35 0
       ]
     }
     DistanceSensor {
@@ -188,8 +185,7 @@ DEF ROBOT Robot {
       name "ds_inner_right"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.4 40 0
       ]
     }
     DistanceSensor {
@@ -198,8 +194,7 @@ DEF ROBOT Robot {
       name "ds_outer_right"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.229 22.9 0
       ]
     }
     DistanceSensor {
@@ -208,8 +203,7 @@ DEF ROBOT Robot {
       name "ds_right"
       lookupTable [
         0.02 0 0
-        0.1 10 0
-        0.5 50 0
+        0.2 20 0
       ]
     }
     TouchSensor {
