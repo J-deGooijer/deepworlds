@@ -46,8 +46,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def __init__(self, steps_per_episode=10000,
                  on_target_threshold=0.15, on_target_limit=5,
                  dist_sensors_thresholds=None, dist_sensors_thresholds_multipliers=None, dist_sensors_weights=None,
-                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=1000.0, collision_weight=10.0,
+                 target_distance_weight=100.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
+                 tar_stop_weight=10000.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -108,9 +108,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # dist_sensors_thresholds defines the minimum values that should be read from the sensors.
         # If the values are smaller than the default and  the robot keeps moving forward it is guaranteed to collide.
         if dist_sensors_thresholds_multipliers is None:
-            dist_sensors_thresholds_multipliers = [1.2, 0.81, 0.46, 0.2, 0.46, 0.81, 1.2]
+            # dist_sensors_thresholds_multipliers = [1.2, 0.81, 0.46, 0.2, 0.46, 0.81, 1.2]
+            dist_sensors_thresholds_multipliers = [1.0 for _ in range(len(self.distance_sensors))]
         if dist_sensors_thresholds is None:
-            self.dist_sensors_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
+            # self.dist_sensors_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
+            self.dist_sensors_thresholds = [self.ds_max for _ in range(len(self.distance_sensors))]
         self.dist_sensors_thresholds = [self.dist_sensors_thresholds[i] * dist_sensors_thresholds_multipliers[i]
                                         for i in range(len(self.dist_sensors_thresholds))]
 
