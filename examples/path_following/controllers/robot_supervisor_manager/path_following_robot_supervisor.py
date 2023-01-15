@@ -47,7 +47,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.15, on_target_limit=5,
                  dist_sensors_thresholds=None, dist_sensors_thresholds_multipliers=None, dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=1000.0, collision_weight=100.0,
+                 tar_stop_weight=1000.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -116,7 +116,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # The weights can change how critical each sensor is for the final distance sensor reward
         if dist_sensors_weights is None:
-            self.dist_sensors_weights = [1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0]
+            self.dist_sensors_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         # Normalize weights to add up to 1
         self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
 
@@ -253,7 +253,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 elif current_d - prev_d > 0.0001:
                     obstacle_rewards.append(normalize_to_range(current_d, 0.0, self.ds_max, 1.0, 0.0))
                     obstacle_rewards[-1] *= self.dist_sensors_weights[i]
-        obstacle_reward = sum(obstacle_rewards)
+        obstacle_reward = sum(obstacle_rewards)  # 0 if list is empty
 
         # Check if the robot has collided with anything
         if self.touch_sensor.getValue() == 1.0:  # NOQA
