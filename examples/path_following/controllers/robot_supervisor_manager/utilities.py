@@ -74,16 +74,16 @@ def get_distance_from_target(robot_node, target_node):
     return distance_from_target
 
 
-def get_angle_from_target(robot_node,
-                          target_node,
-                          is_abs=False):
+def get_angle_from_target(robot_node, target, node_mode=True, is_abs=False):
     """
     Returns the angle between the facing vector of the robot and the target position.
     Explanation can be found here https://math.stackexchange.com/a/14180.
     :param robot_node: The robot Webots node
     :type robot_node: controller.node.Node
-    :param target_node: The target Webots node
-    :type target_node: controller.node.Node
+    :param target: The target Webots node or position
+    :type target: controller.node.Node or [x, y]
+    :param node_mode: Whether the target is given as a Webots node
+    :type node_mode: bool
     :param is_abs: Whether to return the absolute value of the angle. When True,
     eliminates clockwise, anti-clockwise direction and returns [0, π]
     :type is_abs: bool
@@ -96,7 +96,10 @@ def get_angle_from_target(robot_node,
         np.sign(robot_node.getField('rotation').getSFRotation()[2])
 
     robot_coordinates = robot_node.getField('translation').getSFVec3f()
-    target_coordinate = target_node.getField('translation').getSFVec3f()
+    if node_mode:
+        target_coordinate = target.getField('translation').getSFVec3f()
+    else:
+        target_coordinate = target
 
     x_r = (target_coordinate[0] - robot_coordinates[0])
     y_r = (target_coordinate[1] - robot_coordinates[1])
