@@ -44,10 +44,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, steps_per_episode=10000,
-                 on_target_threshold=0.15, on_target_limit=5,
-                 dist_sensors_thresholds=None, dist_sensors_thresholds_multipliers=None, dist_sensors_weights=None,
-                 target_distance_weight=100.0, tar_angle_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=10000.0, collision_weight=10.0,
+                 on_target_threshold=0.1, on_target_limit=5,
+                 dist_sensors_weights=None,
+                 target_distance_weight=2.0, tar_angle_weight=2.0,
+                 dist_path_weight=1.0, dist_sensors_weight=2.0,
+                 tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -79,12 +80,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
         # this loop grabs the first distance sensor child of the robot and gets the max value it can output
         # from its lookup table. This is used for normalizing the observation.
-        self.ds_max = -1
+        self.ds_max = []
         for childNodeIndex in range(self.robot.getField("children").getCount()):
             child = self.robot.getField("children").getMFNode(childNodeIndex)  # NOQA
             if child.getTypeName() == "DistanceSensor":
-                self.ds_max = child.getField("lookupTable").getMFVec3f(-1)[1]
-                break
+                self.ds_max.append(child.getField("lookupTable").getMFVec3f(-1)[1])
 
         # Set up motors
         self.left_motor = self.getDevice("left_wheel")
@@ -104,31 +104,24 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
         self.previous_distance = 0.0
         self.previous_angle = 0.0
+        self.previous_dist_path = 0.0
+        self.previous_angle_path = 0.0
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        # dist_sensors_thresholds defines the minimum values that should be read from the sensors.
-        # If the values are smaller than the default and  the robot keeps moving forward it is guaranteed to collide.
-        if dist_sensors_thresholds_multipliers is None:
-            # dist_sensors_thresholds_multipliers = [1.2, 0.81, 0.46, 0.2, 0.46, 0.81, 1.2]
-            dist_sensors_thresholds_multipliers = [1.0 for _ in range(len(self.distance_sensors))]
-        if dist_sensors_thresholds is None:
-            # self.dist_sensors_thresholds = [11., 12.7, 22., 50.0, 22., 12.7, 11.]
-            self.dist_sensors_thresholds = [self.ds_max for _ in range(len(self.distance_sensors))]
-        self.dist_sensors_thresholds = [self.dist_sensors_thresholds[i] * dist_sensors_thresholds_multipliers[i]
-                                        for i in range(len(self.dist_sensors_thresholds))]
 
         # The weights can change how critical each sensor is for the final distance sensor reward
         if dist_sensors_weights is None:
-            self.dist_sensors_weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+            self.dist_sensors_weights = [1.0, 1.25, 1.5, 2.0, 1.5, 1.25, 1.0]
         # Normalize weights to add up to 1
         self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
 
-        self.reward_weight_dict = {"tar_distance": target_distance_weight, "tar_angle": tar_angle_weight,
-                                   "dist_sensors": dist_sensors_weight, "tar_stop": tar_stop_weight,
-                                   "collision": collision_weight}
+        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
+                                   "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
+                                   "tar_stop": tar_stop_weight, "collision": collision_weight}
 
         self.on_target_counter = 0
         self.on_target_limit = on_target_limit  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
+        self.just_reset = True
 
         # Map
         self.map_width, self.map_height = map_width, map_height
@@ -201,97 +194,150 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Add distance sensor values
         ds_values = []
-        for ds in self.distance_sensors:
+        for i in range(len(self.distance_sensors)):
+            ds = self.distance_sensors[i]
             ds_values.append(ds.getValue())  # NOQA
-            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max, 1.0, 0.0), 8)
+            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max[i], 1.0, 0.0), 8)
         obs.extend(ds_values)
         return obs
 
     def get_reward(self, action):
+        ################################################################################################################
+        # Get current values
+
+        # Get distance and angle to target
         current_distance = get_distance_from_target(self.robot, self.target)
         current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
 
-        # Reward for decreasing distance to the target
-        distance_reward = round(normalize_to_range(self.previous_distance - current_distance,
-                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
-        # Reward for decreasing angle to the target
-        if (self.previous_angle - current_angle) > 0.001:
-            angle_reward = 1.0
-        elif (self.previous_angle - current_angle) < -0.001:
-            angle_reward = -1.0
-        else:
-            angle_reward = 0.0
+        # Get minimum distance to path
+        current_dist_path, current_path_closest_point = self.find_dist_to_path()
+        current_angle_path = get_angle_from_target(self.robot, current_path_closest_point,
+                                                   node_mode=False, is_abs=True)
 
-        # Bonus reward for reaching the target and for stopping
-        stop_reward = 0.0
-        if current_distance < self.on_target_threshold:
-            if action == 3:
-                if self.on_target_counter >= self.on_target_limit:
-                    stop_reward = 1.0
-                    self.on_target_counter = 0
-                    self.trigger_done = True
-                else:
-                    self.on_target_counter += 1
-            else:
-                self.on_target_counter = 0
-        else:
-            self.on_target_counter = 0
-
-        # Reward for avoiding obstacles
         # Get all distance sensor values
         current_dist_sensors = []  # Values are in range [0, self.ds_max]
         for ds in self.distance_sensors:
             current_dist_sensors.append(ds.getValue())  # NOQA
 
-        obstacle_rewards = []
+        ################################################################################################################
+        # Reward components
+
+        # Reward for decreasing distance to the target
+        # Distance to target reward scales between -1.0 and 1.0, based on how much it increases or decreases
+        dist_tar_reward = round(normalize_to_range(self.previous_distance - current_distance,
+                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
+
+        # Reward for decreasing angle to the target
+        # Angle to target reward is 1.0 for decreasing angle, and -1.0 for increasing angle
+        if (self.previous_angle - current_angle) > 0.001:
+            ang_tar_reward = 1.0
+        elif (self.previous_angle - current_angle) < -0.001:
+            ang_tar_reward = -1.0
+        else:
+            ang_tar_reward = 0.0
+
+        # Bonus reward for reaching the target and for stopping
+        tar_stop_reward = 0.0
+        if current_distance < self.on_target_threshold:
+            if action == 3:
+                # If action is stop start counting up to on_target_limit
+                if self.on_target_counter >= self.on_target_limit:
+                    # Action was stop while on target for on_target_limit steps
+                    tar_stop_reward = 1.0
+                    self.on_target_counter = 0  # Reset counter
+                    self.trigger_done = True  # Terminate episode
+                else:
+                    self.on_target_counter += 1
+            else:
+                # Action is not stop, reset counter
+                self.on_target_counter = 0
+        else:
+            # Distance is over threshold, reset counter
+            self.on_target_counter = 0
+
+        # Reward for avoiding obstacles
+        dist_sensors_rewards = []
         for i in range(len(self.distance_sensors)):
             current_d = current_dist_sensors[i]
-            prev_d = self.previous_dist_sensors[i]
-            sens_threshold = self.dist_sensors_thresholds[i]
-            if current_d < sens_threshold:
-                if current_d - prev_d < -0.0001:
-                    obstacle_rewards.append(normalize_to_range(current_d, 0.0, self.ds_max, -1.0, 0.0))
-                    obstacle_rewards[-1] *= self.dist_sensors_weights[i]
-                elif current_d - prev_d > 0.0001:
-                    obstacle_rewards.append(normalize_to_range(current_d, 0.0, self.ds_max, 1.0, 0.0))
-                    obstacle_rewards[-1] *= self.dist_sensors_weights[i]
-        obstacle_reward = sum(obstacle_rewards)  # 0 if list is empty
+            if current_d < self.ds_max[i]:
+                dist_sensors_rewards.append(normalize_to_range(current_d,
+                                                               0.0, self.ds_max[i],
+                                                               -1.0, 0.0)
+                                            * self.dist_sensors_weights[i])
+            elif current_d == self.ds_max[i]:
+                dist_sensors_rewards.append(1.0 * self.dist_sensors_weights[i])
+        dist_sensors_reward = sum(dist_sensors_rewards)
 
-        # Check if the robot has collided with anything
+        # Reward robot for closing the distance to the predefined path
+        if (self.previous_dist_path - current_dist_path) > 0.00001:
+            dist_path_reward = 0.5
+        elif (self.previous_dist_path - current_dist_path) < -0.00001:
+            dist_path_reward = -0.5
+        else:
+            dist_path_reward = 0.0
+        # Reward robot for closing the angle to the predefined path
+        if (self.previous_angle_path - current_angle_path) > 0.00001:
+            ang_path_reward = 0.5
+        elif (self.previous_angle_path - current_angle_path) < -0.00001:
+            ang_path_reward = -0.5
+        else:
+            ang_path_reward = 0.0
+
+        dist_path_reward += ang_path_reward
+
+        # Check if the robot has collided with anything, assign negative reward and terminate episode
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             collision_reward = -1.0
             self.trigger_done = True
         else:
             collision_reward = 0.0
 
+        ################################################################################################################
         # Total reward calculation
-        weighted_distance_reward = round(self.reward_weight_dict["tar_distance"] * distance_reward, 4)
-        weighted_angle_reward = round(self.reward_weight_dict["tar_angle"] * angle_reward, 4)
-        weighted_distance_sensor_reward = round(self.reward_weight_dict["dist_sensors"] * obstacle_reward, 4)
-        weighted_stop_reward = round(self.reward_weight_dict["tar_stop"] * stop_reward, 4)
+
+        weighted_dist_tar_reward = round(self.reward_weight_dict["dist_tar"] * dist_tar_reward, 4)
+        weighted_ang_tar_reward = round(self.reward_weight_dict["ang_tar"] * ang_tar_reward, 4)
+        weighted_dist_path_reward = round(self.reward_weight_dict["dist_path"] * dist_path_reward, 4)
+        weighted_dist_sensors_reward = round(self.reward_weight_dict["dist_sensors"] * dist_sensors_reward, 4)
+        weighted_tar_stop_reward = round(self.reward_weight_dict["tar_stop"] * tar_stop_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
+        # print(f"tar dist : {weighted_dist_tar_reward}")
+        # print(f"tar ang  : {weighted_ang_tar_reward}")
+        # print(f"tar stop : {weighted_tar_stop_reward}")
+        # print(f"path dist: {weighted_dist_path_reward}")
+        # print(f"path ang : {ang_path_reward}")
+        # print(f"sens dist: {weighted_dist_sensors_reward}")
+        # print(f"col obst : {weighted_tar_stop_reward}")
+
         # Baseline reward is distance and angle to target
-        reward = weighted_distance_reward + weighted_angle_reward
-        # If there's any reward coming from the distance sensors, i.e. moving close to an obstacle
-        if weighted_distance_sensor_reward != 0.0:
-            if np.sign(reward) == np.sign(weighted_distance_sensor_reward):
-                # If distance and angle reward is same sign as the distance sensor reward add them all together
-                reward += weighted_distance_sensor_reward
-            else:
-                # Otherwise only avoiding obstacle reward is used
-                reward = weighted_distance_sensor_reward
+        reward = weighted_dist_tar_reward + weighted_ang_tar_reward
+
+        # Add sensors reward
+        reward += weighted_dist_sensors_reward
+
+        # Add distance to path reward
+        reward += weighted_dist_path_reward
+
         # Stop reward overrides other rewards if robot is within target threshold
         if current_distance < self.on_target_threshold:
-            reward = weighted_stop_reward
+            reward = weighted_tar_stop_reward
         # Collision reward overrides all other rewards, because it means the robot has collided with an obstacle
         if weighted_collision_reward != 0.0:
             reward = weighted_collision_reward
-
+        # print(f"final reward: {reward}")
+        # print("-------")
         self.previous_distance = current_distance
         self.previous_angle = current_angle
+        self.previous_dist_path = current_dist_path
+        self.previous_angle_path = current_angle_path
         self.previous_dist_sensors = current_dist_sensors
-        return reward
+
+        if self.just_reset:
+            self.just_reset = False
+            return 0.0
+        else:
+            return reward
 
     def is_done(self):
         """
@@ -328,6 +374,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 randomization_successful = True
                 self.path_to_target = self.path_to_target[1:]  # Remove starting node
         self.place_path(self.path_to_target)
+        self.just_reset = True
         return starting_obs
 
     def solved(self):
@@ -473,6 +520,32 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def place_path(self, path):
         for p, l in zip(path, self.all_path_nodes):
             self.map.add_cell(p[0], p[1], l)
+
+    def find_dist_to_path(self):
+        def dist_to_line_segm(p, l1, l2):
+            v = l2 - l1
+            w = p - l1
+            c1 = np.dot(w, v)
+            if c1 <= 0:
+                return np.linalg.norm(p - l1), l1
+            c2 = np.dot(v, v)
+            if c2 <= c1:
+                return np.linalg.norm(p - l2), l2
+            b = c1 / c2
+            pb = l1 + b * v
+            return np.linalg.norm(p - pb), pb
+
+        np_path = np.array([self.map.get_world_coordinates(self.path_to_target[i][0], self.path_to_target[i][1])
+                            for i in range(len(self.path_to_target))])
+        min_distance = float('inf')
+        closest_point = None
+        for i in range(np_path.shape[0] - 1):
+            edge = np.array([np_path[i], np_path[i + 1]])
+            robot_pos = np.array(self.robot.getPosition()[:2])
+            distance, point_on_line = dist_to_line_segm(robot_pos, edge[0], edge[1])
+            min_distance = min(min_distance, distance)
+            closest_point = point_on_line
+        return min_distance, closest_point
 
     def get_info(self):
         """
