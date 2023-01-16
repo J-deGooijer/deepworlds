@@ -537,11 +537,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         np_path = np.array([self.map.get_world_coordinates(self.path_to_target[i][0], self.path_to_target[i][1])
                             for i in range(len(self.path_to_target))])
+        robot_pos = np.array(self.robot.getPosition()[:2])
+
+        if len(np_path) == 1:
+            return np.linalg.norm(np_path[0] - robot_pos), np_path[0]
+
         min_distance = float('inf')
         closest_point = None
         for i in range(np_path.shape[0] - 1):
             edge = np.array([np_path[i], np_path[i + 1]])
-            robot_pos = np.array(self.robot.getPosition()[:2])
             distance, point_on_line = dist_to_line_segm(robot_pos, edge[0], edge[1])
             min_distance = min(min_distance, distance)
             closest_point = point_on_line
