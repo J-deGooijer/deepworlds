@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.4241945992979554 0.43310930668739117 0.7952831385030203 1.777566266183108
-  position 0.4934707488102471 -6.8744053034799455 10.112320674742453
+  orientation -0.4078357217192578 0.41071963793356336 0.815462692650899 1.7664884369195017
+  position 0.34456965029921244 -6.157287689088565 8.013893273188375
   follow "robot"
 }
 TexturedBackground {
@@ -259,8 +259,13 @@ DEF OBSTACLES Group {
       size 0.1 0.4 0.1
     }
     DEF OBSTACLE_CBL4 CardboardBox {
-      translation 5.86 0 0.051
+      translation 5.98 0 0.051
       name "cardboard box long 4"
+      size 0.1 0.4 0.1
+    }
+    DEF OBSTACLE_CBL5 CardboardBox {
+      translation 5.86 0 0.051
+      name "cardboard box long 5"
       size 0.1 0.4 0.1
     }
     DEF OBSTACLE_CB1 CardboardBox {
@@ -283,6 +288,11 @@ DEF OBSTACLES Group {
       name "cardboard box 4"
       size 0.1 0.1 0.1
     }
+    DEF OBSTACLE_CB5 CardboardBox {
+      translation 5.98 0.29 0.051
+      name "cardboard box 5"
+      size 0.1 0.1 0.1
+    }
     DEF OBSTACLE_CBLA1 CardboardBox {
       translation 5.86 0.68 0.051
       name "cardboard box large 1"
@@ -303,6 +313,11 @@ DEF OBSTACLES Group {
       name "cardboard box large 4"
       size 0.4 0.4 0.1
     }
+    DEF OBSTACLE_CBLA5 CardboardBox {
+      translation 5.86 2.53 0.051
+      name "cardboard box large 5"
+      size 0.4 0.4 0.1
+    }
     DEF OBSTACLE_C1 WoodenChair {
       translation 6.46 0 0
       name "wooden chair 1"
@@ -319,6 +334,10 @@ DEF OBSTACLES Group {
       translation 6.46 1.38 0
       name "wooden chair 4"
     }
+    DEF OBSTACLE_C5 WoodenChair {
+      translation 6.46 1.84 0
+      name "wooden chair 5"
+    }
     DEF OBSTACLE_JJ1 JamJar {
       translation 5.31 -0.16 0
       name "jam jar 1"
@@ -334,6 +353,10 @@ DEF OBSTACLES Group {
     DEF OBSTACLE_JJ4 JamJar {
       translation 5.31 0.16 0
       name "jam jar 4"
+    }
+    DEF OBSTACLE_JJ5 JamJar {
+      translation 5.31 0.27 0
+      name "jam jar 5"
     }
   ]
 }
