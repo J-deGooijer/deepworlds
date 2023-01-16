@@ -48,7 +48,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  dist_sensors_weights=None,
                  target_distance_weight=2.0, tar_angle_weight=4.0,
                  dist_path_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=100.0, collision_weight=100.0,
+                 tar_stop_weight=1000.0, collision_weight=100.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
