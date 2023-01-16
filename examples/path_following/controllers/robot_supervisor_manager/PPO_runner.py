@@ -32,14 +32,14 @@ def run():
         2500: {"number_of_obstacles": 15, "min_target_dist": 5, "max_target_dist": 7},
         2750: {"number_of_obstacles": 15, "min_target_dist": 6, "max_target_dist": 7},
         3000: {"number_of_obstacles": 15, "min_target_dist": 6, "max_target_dist": 8},
-        3250: {"number_of_obstacles": 17, "min_target_dist": 7, "max_target_dist": 8},
-        3500: {"number_of_obstacles": 17, "min_target_dist": 7, "max_target_dist": 9},
-        3750: {"number_of_obstacles": 17, "min_target_dist": 8, "max_target_dist": 9},
-        4000: {"number_of_obstacles": 17, "min_target_dist": 8, "max_target_dist": 10},
-        4250: {"number_of_obstacles": 20, "min_target_dist": 9, "max_target_dist": 10},
-        4500: {"number_of_obstacles": 20, "min_target_dist": 9, "max_target_dist": 11},
-        4750: {"number_of_obstacles": 20, "min_target_dist": 10, "max_target_dist": 11},
-        5000: {"number_of_obstacles": 20, "min_target_dist": 10, "max_target_dist": 12},
+        3250: {"number_of_obstacles": 20, "min_target_dist": 7, "max_target_dist": 8},
+        3500: {"number_of_obstacles": 20, "min_target_dist": 7, "max_target_dist": 9},
+        3750: {"number_of_obstacles": 20, "min_target_dist": 8, "max_target_dist": 9},
+        4000: {"number_of_obstacles": 20, "min_target_dist": 8, "max_target_dist": 10},
+        4250: {"number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 10},
+        4500: {"number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 11},
+        4750: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 11},
+        5000: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
     }
 
     # Run outer loop until the episodes limit is reached or the task is solved
