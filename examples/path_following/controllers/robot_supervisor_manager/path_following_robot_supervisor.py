@@ -47,7 +47,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.1, on_target_limit=5,
                  dist_sensors_weights=None,
                  target_distance_weight=2.0, tar_angle_weight=2.0,
-                 dist_path_weight=1.0, dist_sensors_weight=2.0,
+                 dist_path_weight=1.0, dist_sensors_weight=4.0,
                  tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
@@ -258,14 +258,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for avoiding obstacles
         dist_sensors_rewards = []
         for i in range(len(self.distance_sensors)):
-            current_d = current_dist_sensors[i]
-            if current_d < self.ds_max[i]:
-                dist_sensors_rewards.append(normalize_to_range(current_d,
-                                                               0.0, self.ds_max[i],
-                                                               -1.0, 0.0)
-                                            * self.dist_sensors_weights[i])
-            elif current_d == self.ds_max[i]:
-                dist_sensors_rewards.append(1.0 * self.dist_sensors_weights[i])
+            dist_sensors_rewards.append(normalize_to_range(current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0)
+                                        * self.dist_sensors_weights[i])
         dist_sensors_reward = sum(dist_sensors_rewards)
 
         # Reward robot for closing the distance to the predefined path
