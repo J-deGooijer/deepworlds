@@ -47,7 +47,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.1, on_target_limit=5,
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
-                 dist_path_weight=1.0, dist_sensors_weight=1.0,
+                 dist_path_weight=0.0, dist_sensors_weight=10.0,
                  tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
@@ -307,8 +307,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Baseline reward is distance and angle to target
         reward = weighted_dist_tar_reward + weighted_ang_tar_reward
 
-        # Add sensors reward
-        reward += weighted_dist_sensors_reward
+        # Overwrite baseline reward with distance sensor reward if it is not zero
+        if weighted_dist_sensors_reward != 0.0:
+            reward = weighted_dist_sensors_reward
 
         # Add distance to path reward
         reward += weighted_dist_path_reward
