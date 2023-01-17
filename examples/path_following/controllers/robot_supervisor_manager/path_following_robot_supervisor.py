@@ -46,9 +46,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def __init__(self, steps_per_episode=10000,
                  on_target_threshold=0.1, on_target_limit=5,
                  dist_sensors_weights=None,
-                 target_distance_weight=2.0, tar_angle_weight=2.5,
-                 dist_path_weight=1.0, dist_sensors_weight=10.0,
-                 tar_stop_weight=1000.0, collision_weight=100.0,
+                 target_distance_weight=1.0, tar_angle_weight=1.0,
+                 dist_path_weight=1.0, dist_sensors_weight=1.0,
+                 tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
