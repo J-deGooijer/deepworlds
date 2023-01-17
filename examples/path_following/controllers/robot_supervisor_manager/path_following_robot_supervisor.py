@@ -250,6 +250,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.on_target_counter += 1
             else:
                 # Action is not stop, reset counter
+                tar_stop_reward = -1.0
                 self.on_target_counter = 0
         else:
             # Distance is over threshold, reset counter
@@ -299,8 +300,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # print(f"tar dist : {weighted_dist_tar_reward}")
         # print(f"tar ang  : {weighted_ang_tar_reward}")
         # print(f"tar stop : {weighted_tar_stop_reward}")
-        # print(f"path dist: {weighted_dist_path_reward}")
-        # print(f"path ang : {ang_path_reward}")
+        # print(f"path d+a : {weighted_dist_path_reward}")
         # print(f"sens dist: {weighted_dist_sensors_reward}")
         # print(f"col obst : {weighted_tar_stop_reward}")
 
