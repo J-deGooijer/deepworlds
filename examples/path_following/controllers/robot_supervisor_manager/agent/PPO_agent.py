@@ -204,6 +204,16 @@ class Actor(nn.Module):
         action_prob = F.softmax(self.action_head(x), dim=1)
         return action_prob
 
+    def get_size(self, x):
+        layer_sizes = [list(x.size())[1]]
+        x = F.relu(self.fc1(x))
+        layer_sizes.append(list(x.size())[1])
+        x = F.relu(self.fc2(x))
+        layer_sizes.append(list(x.size())[1])
+        action_prob = F.softmax(self.action_head(x), dim=1)
+        layer_sizes.append(list(action_prob.size())[1])
+        return layer_sizes
+
 
 class Critic(nn.Module):
     def __init__(self, num_of_inputs):
@@ -217,3 +227,13 @@ class Critic(nn.Module):
         x = F.relu(self.fc2(x))
         value = self.state_value(x)
         return value
+
+    def get_size(self, x):
+        layer_sizes = [list(x.size())[1]]
+        x = F.relu(self.fc1(x))
+        layer_sizes.append(list(x.size())[1])
+        x = F.relu(self.fc2(x))
+        layer_sizes.append(list(x.size())[1])
+        value = self.state_value(x)
+        layer_sizes.append(list(value.size())[1])
+        return layer_sizes
