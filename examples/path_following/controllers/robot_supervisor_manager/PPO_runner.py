@@ -41,6 +41,8 @@ def run():
         4750: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 11},
         5000: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
     }
+    # Save experiment setup to json file
+    env.export_parameters("./experiment_parameters.json", agent, difficulty, episode_limit)
 
     # Run outer loop until the episodes limit is reached or the task is solved
     while not solved and episode_count < episode_limit:
