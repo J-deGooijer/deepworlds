@@ -575,6 +575,30 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         print("render() is not used")
 
+    def export_parameters(self, path, agent, difficulty_dict, episode_limit):
+        import json
+        from torch import from_numpy
+        param_dict = {"steps_per_episode": self.steps_per_episode, "episode_limit": episode_limit,
+                      "obs_window_size": self.obs_window_size,
+                      "on_target_threshold": self.on_target_threshold, "on_target_limit": self.on_target_limit,
+                      "dist_sensors_weights": list(self.dist_sensors_weights),
+                      "rewards_weights": self.reward_weight_dict,
+                      "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
+                      "difficulty": difficulty_dict,
+                      "ppo_params": {
+                          "actor_size": agent.actor_net.get_size(from_numpy(np.array(
+                              self.get_default_observation())).float().unsqueeze(0)),
+                          "critic_size": agent.critic_net.get_size(from_numpy(np.array(
+                              self.get_default_observation())).float().unsqueeze(0)),
+                          "clip_param": agent.clip_param,
+                          "max_grad_norm": agent.max_grad_norm,
+                          "ppo_update_iters": agent.ppo_update_iters,
+                          "gamma": agent.gamma,
+                        }
+                      }
+        with open(path, 'w') as fp:
+            json.dump(param_dict, fp, indent=4)
+
 
 class Grid:
     """
