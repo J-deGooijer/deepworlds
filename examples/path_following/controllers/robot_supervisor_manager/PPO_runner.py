@@ -13,11 +13,23 @@ def run():
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
 
+    parent_dir = "./experiments"
+    experiment_name = "window_1"
+
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+
+    parent_dir = os.path.join("./experiments", experiment_name)
+    if not os.path.exists(parent_dir):
+        os.mkdir(parent_dir)
+
     episode_count = 0
     episode_limit = 10000
     episodes_per_checkpoint = 250
     solved = False  # Whether the solved requirement is met
-    avg_episode_action_probs = []  # Save average episode taken actions probability to plot later
+    all_episodes_action_probs = []
+    all_episodes_avg_action_probs = []
+    all_episodes_final_distance = []
     difficulty = {
         0: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 1},
         250: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 2},
@@ -42,7 +54,7 @@ def run():
         5000: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
     }
     # Save experiment setup to json file
-    env.export_parameters("./experiment_parameters.json", agent, difficulty, episode_limit)
+    env.export_parameters(os.path.join(parent_dir, "experiment_parameters.json"), agent, difficulty, episode_limit)
 
     # Run outer loop until the episodes limit is reached or the task is solved
     while not solved and episode_count < episode_limit:
@@ -51,14 +63,16 @@ def run():
 
         state = env.reset()  # Reset robot and get starting observation
         env.episode_score = 0
-        action_probs = []  # This list holds the probability of each chosen action
+        # This dict holds the probabilities of each chosen action
+        episode_action_probs = {str(i): [] for i in range(env.action_space.n)}
+        episode_final_distance = 1.0  # This is the final distance reached in the episode normalized in [0.0, 1.0]
 
         # Inner loop is the episode loop
         for step in range(env.steps_per_episode):
             # In training mode the agent samples from the probability distribution, naturally implementing exploration
             selected_action, action_prob = agent.work(state, type_="selectAction")
             # Save the current selected_action's probability
-            action_probs.append(action_prob)
+            episode_action_probs[str(selected_action)].append(action_prob)
 
             # Step the supervisor to get the current selected_action reward, the new state and whether we reached the
             # done condition
@@ -70,8 +84,9 @@ def run():
 
             env.episode_score += reward  # Accumulate episode reward
             if done or step == env.steps_per_episode - 1:
-                # Save the episode's score
-                env.episode_score_list.append(env.episode_score)
+                # Save final distance achieved from final state
+                episode_final_distance = state[0]
+
                 agent.train_step(batch_size=step + 1)
                 solved = env.solved()  # Check whether the task is solved
 
@@ -79,19 +94,28 @@ def run():
                 if episode_count % episodes_per_checkpoint == 0 \
                         and episode_count != 0 \
                         or episode_count == episode_limit - 1:
-                    if not os.path.exists("./checkpoints"):
-                        os.mkdir("./checkpoints")
-                    agent.save(f"./checkpoints/{episode_count}")
+                    checkpoint_dir = os.path.join(parent_dir, "checkpoints")
+                    if not os.path.exists(checkpoint_dir):
+                        os.mkdir(checkpoint_dir)
+                    agent.save(os.path.join(checkpoint_dir, str(episode_count)))
                 break
 
             state = new_state  # state for next step is current step's new_state
-
+        # End of the episode, print and save some stats
         print("Episode #", episode_count + 1, "score:", env.episode_score)
-        # The average action probability tells us how confident the agent was of its actions.
-        # By looking at this we can check whether the agent is converging to a certain policy.
-        avg_action_prob = mean(action_probs)
-        avg_episode_action_probs.append(avg_action_prob)
-        print("Avg action prob:", avg_action_prob)
+        # Save the episode's score
+        env.episode_score_list.append(env.episode_score)
+        # Save the episode's action probabilities
+        all_episodes_action_probs.append(episode_action_probs)
+        all_probs = []
+        for i in range(env.action_space.n):
+            all_probs.extend(episode_action_probs[str(i)])
+        # Save the average action probability
+        average_episode_action_prob = mean(all_probs)
+        all_episodes_avg_action_probs.append(average_episode_action_prob)
+        print("Average episode action probability:", average_episode_action_prob)
+        # Save the episode final distance achieved
+        all_episodes_final_distance.append(episode_final_distance)
 
         episode_count += 1  # Increment episode counter
 
@@ -100,10 +124,17 @@ def run():
         moving_avg_n = 10
         plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
                   "episode", "episode score", "Episode scores over episodes")
-        plot_data(convolve(avg_episode_action_probs, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                  "episode", "average episode action probability", "Average episode action probability over episodes")
     except Exception as e:
         print("Plotting failed:", e)
+
+    from json import dump
+    result_dict = {"episodes_reward": env.episode_score_list,
+                   "episodes_avg_action_prob": all_episodes_avg_action_probs,
+                   "episodes_action_probs": all_episodes_action_probs,
+                   "episodes_final_distance": all_episodes_final_distance
+                   }
+    with open(os.path.join(parent_dir, experiment_name + "_results.json"), 'w') as fp:
+        dump(result_dict, fp, indent=4)
 
     if not solved:
         print("Reached episode limit and task was not solved, deploying agent for testing...")
