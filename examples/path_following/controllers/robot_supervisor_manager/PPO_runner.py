@@ -123,7 +123,7 @@ def run():
         # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
         moving_avg_n = 10
         plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                  "episode", "episode score", "Episode scores over episodes")
+                  "episode", "episode score", "Episode scores over episodes" + experiment_name)
     except Exception as e:
         print("Plotting failed:", e)
 
