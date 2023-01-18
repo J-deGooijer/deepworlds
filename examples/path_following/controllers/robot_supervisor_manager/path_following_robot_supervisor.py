@@ -43,7 +43,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self, steps_per_episode=10000,
+    def __init__(self, steps_per_episode=10000, obs_window_size=1,
                  on_target_threshold=0.1, on_target_limit=5,
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
@@ -55,8 +55,19 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         super().__init__()
         # Set up gym spaces
-        self.observation_space = Box(low=np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-                                     high=np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+        self.obs_window_size = obs_window_size
+        self.obs_list = []
+        self.single_obs_size = 9
+        single_obs_low = [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        obs_low = []
+        obs_high = []
+        for _ in range(self.obs_window_size):
+            obs_low.extend(single_obs_low)
+            obs_high.extend(single_obs_high)
+            self.obs_list.extend([0.0 for _ in range(self.single_obs_size)])
+        self.observation_space = Box(low=np.array(obs_low),
+                                     high=np.array(obs_high),
                                      dtype=np.float64)
         self.action_space = Discrete(5)
 
@@ -199,7 +210,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             ds_values.append(ds.getValue())  # NOQA
             ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max[i], 1.0, 0.0), 8)
         obs.extend(ds_values)
-        return obs
+
+        self.obs_list = self.obs_list[self.single_obs_size:]  # Drop oldest
+        self.obs_list.extend(obs)  # Add newest at the end
+        return self.obs_list
 
     def get_reward(self, action):
         ################################################################################################################
