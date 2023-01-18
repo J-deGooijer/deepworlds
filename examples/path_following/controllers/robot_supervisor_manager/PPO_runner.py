@@ -102,7 +102,7 @@ def run():
 
             state = new_state  # state for next step is current step's new_state
         # End of the episode, print and save some stats
-        print("Episode #", episode_count + 1, "score:", env.episode_score)
+        print(f"Experiment \"{experiment_name}\" - episode #", episode_count + 1, "score:", env.episode_score)
         # Save the episode's score
         env.episode_score_list.append(env.episode_score)
         # Save the episode's action probabilities
@@ -123,7 +123,7 @@ def run():
         # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
         moving_avg_n = 10
         plot_data(convolve(env.episode_score_list, ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                  "episode", "episode score", "Episode scores over episodes" + experiment_name)
+                  "episode", "episode score", "Episode scores over episodes - " + experiment_name)
     except Exception as e:
         print("Plotting failed:", e)
 
