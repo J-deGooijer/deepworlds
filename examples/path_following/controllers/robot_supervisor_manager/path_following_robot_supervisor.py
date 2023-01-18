@@ -239,14 +239,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for decreasing distance to the target
         # Distance to target reward scales between -1.0 and 1.0, based on how much it increases or decreases
         dist_tar_reward = round(normalize_to_range(self.previous_distance - current_distance,
-                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
+                                                   -0.0013, 0.0013, -1.5, 1.0), 2)
 
         # Reward for decreasing angle to the target
         # Angle to target reward is 1.0 for decreasing angle, and -1.0 for increasing angle
         if (self.previous_angle - current_angle) > 0.001:
             ang_tar_reward = 1.0
         elif (self.previous_angle - current_angle) < -0.001:
-            ang_tar_reward = -1.0
+            ang_tar_reward = -1.5
         else:
             ang_tar_reward = 0.0
 
@@ -257,7 +257,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 # If action is stop start counting up to on_target_limit
                 if self.on_target_counter >= self.on_target_limit:
                     # Action was stop while on target for on_target_limit steps
-                    tar_stop_reward = 1.0
+                    tar_stop_reward = 1.0 * self.on_target_counter
                     self.on_target_counter = 0  # Reset counter
                     self.trigger_done = True  # Terminate episode
                 else:
