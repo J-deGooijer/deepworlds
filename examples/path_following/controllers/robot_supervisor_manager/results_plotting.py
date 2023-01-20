@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+from os.path import join
 
 
 def multiple_plot(data_, labels=None,
@@ -26,27 +27,32 @@ def moving_avg(data_, n, mode="valid"):
     return np.convolve(data_padded, np.ones((n,)) / n, mode=mode)
 
 
-results_path = ""
+# Change the following paths if needed
+parent_dir = "./experiments"
+experiment_name = "window_1"
+experiment_folder = join(parent_dir, experiment_name)
+results_path = join(experiment_folder, "window_1_results.json")
 
 with open(results_path) as json_file:
     results = json.load(json_file)
     moving_avg_n = len(results["episodes_reward"]) // 10
 
     # Plot reward per episode
-    save_name = None
+    save_name = join(experiment_folder, "reward.png")
     reward_per_episode_smoothed = moving_avg(results["episodes_reward"], moving_avg_n)
     multiple_plot([results["episodes_reward"], reward_per_episode_smoothed],
                   ["Reward per episode", "Moving average"],
                   "Reward per episode", "episodes", "reward",
                   save_name)
     # Plot final distance to target per episode
-    save_name = None
+    save_name = join(experiment_folder, "dist.png")
     episodes_final_distance_smoothed = moving_avg(results["episodes_final_distance"], moving_avg_n)
     multiple_plot([results["episodes_final_distance"], episodes_final_distance_smoothed],
                   ["Final distance per episode", "Moving average"],
                   "Final distance per episode", "episodes", "final distance",
                   save_name)
     # Plot total average action probability per episode
+    join(experiment_folder, "avg_act.png")
     episodes_avg_action_prob_smoothed = moving_avg(results["episodes_avg_action_prob"], moving_avg_n)
     multiple_plot([results["episodes_avg_action_prob"], episodes_avg_action_prob_smoothed],
                   ["Average action probability per episode", "Moving average"],
@@ -55,7 +61,6 @@ with open(results_path) as json_file:
 
     # Plot each action average probability per episode
     # One line for each action per episode
-    save_name = None
     data = [[] for i in range(len(results["episodes_action_probs"][0].keys()))]
     action_names = ["Forward", "Left", "Right", "Stop", "Backwards"]
     for episode in range(len(results["episodes_action_probs"])):
@@ -68,7 +73,7 @@ with open(results_path) as json_file:
     multiple_plot(data, action_names,
                   "Per action average probability per episode", "episodes", "average action probability")
 
-    save_names = [None for _ in range(action_names)]
+    save_names = [join(experiment_folder, f"{name.lower()}.png") for name in action_names]
     name_ind = 0
     for data_line, action_name in zip(data, action_names):
         data_line_smoothed = moving_avg(data_line, moving_avg_n)
