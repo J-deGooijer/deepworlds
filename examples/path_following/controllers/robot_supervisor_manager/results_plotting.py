@@ -26,7 +26,7 @@ def moving_avg(data_, n, mode="valid"):
     return np.convolve(data_padded, np.ones((n,)) / n, mode=mode)
 
 
-results_path = "./experiments/window_20/window_20_results.json"
+results_path = ""
 
 with open(results_path) as json_file:
     results = json.load(json_file)
