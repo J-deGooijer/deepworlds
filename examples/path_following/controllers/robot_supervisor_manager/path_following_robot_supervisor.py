@@ -48,7 +48,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
-                 tar_stop_weight=10.0, collision_weight=10.0,
+                 tar_reach_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -128,7 +128,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
-                                   "tar_stop": tar_stop_weight, "collision": collision_weight}
+                                   "tar_reach": tar_reach_weight, "collision": collision_weight}
 
         self.trigger_done = False  # Used to trigger the done condition
         self.just_reset = True
@@ -250,10 +250,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         else:
             ang_tar_reward = 0.0
 
-        # Reward for reaching the target and for stopping
-        tar_stop_reward = 0.0
+        # Reward for reaching the target
+        reach_tar_reward = 0.0
         if current_distance < self.on_target_threshold:
-            tar_stop_reward = 1.0
+            reach_tar_reward = 1.0
             self.trigger_done = True  # Terminate episode
 
         # Reward for avoiding obstacles
@@ -293,15 +293,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_ang_tar_reward = round(self.reward_weight_dict["ang_tar"] * ang_tar_reward, 4)
         weighted_dist_path_reward = round(self.reward_weight_dict["dist_path"] * dist_path_reward, 4)
         weighted_dist_sensors_reward = round(self.reward_weight_dict["dist_sensors"] * dist_sensors_reward, 4)
-        weighted_tar_stop_reward = round(self.reward_weight_dict["tar_stop"] * tar_stop_reward, 4)
+        weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
         # print(f"tar dist : {weighted_dist_tar_reward}")
         # print(f"tar ang  : {weighted_ang_tar_reward}")
-        # print(f"tar stop : {weighted_tar_stop_reward}")
+        # print(f"tar stop : {weighted_reach_tar_reward}")
         # print(f"path d+a : {weighted_dist_path_reward}")
         # print(f"sens dist: {weighted_dist_sensors_reward}")
-        # print(f"col obst : {weighted_tar_stop_reward}")
+        # print(f"col obst : {weighted_reach_tar_reward}")
 
         # Baseline reward is distance and angle to target
         reward = weighted_dist_tar_reward + weighted_ang_tar_reward
@@ -315,7 +315,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Stop reward overrides other rewards if robot is within target threshold
         if current_distance < self.on_target_threshold:
-            reward = weighted_tar_stop_reward
+            reward = weighted_reach_tar_reward
         # Collision reward overrides all other rewards, because it means the robot has collided with an obstacle
         if weighted_collision_reward != 0.0:
             reward = weighted_collision_reward
