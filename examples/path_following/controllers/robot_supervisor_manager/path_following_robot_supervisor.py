@@ -57,7 +57,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Set up various robot components
         self.robot = self.getSelf()
-        self.number_of_distance_sensors = 13   # Fixed according to ds that exist on robot
+        self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
 
         # Set up gym spaces
         self.obs_window_size = obs_window_size
@@ -78,7 +78,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.observation_space = Box(low=np.array(obs_low),
                                      high=np.array(obs_high),
                                      dtype=np.float64)
-        self.action_space = Discrete(5)
+        self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
 
         self.distance_sensors = []
         self.ds_max = []
