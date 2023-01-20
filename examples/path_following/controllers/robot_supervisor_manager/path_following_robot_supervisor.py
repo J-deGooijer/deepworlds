@@ -6,28 +6,6 @@ from deepbots.supervisor import RobotSupervisorEnv
 from utilities import normalize_to_range, get_distance_from_target, get_angle_from_target
 from controller import Supervisor, Keyboard
 
-DS_STRING = "DistanceSensor {\
-  translation 0.051 0 0\
-  children [\
-    Shape {\
-      appearance PBRAppearance {\
-        baseColor 0.184314 0.596078 0.847059\
-        roughness 1\
-        metalness 0\
-      }\
-      geometry Box {\
-        size 0.01 0.01 0.01\
-      }\
-    }\
-  ]\
-  name \"ds\"\
-  lookupTable [\
-    0.02 0 0\
-    0.1 10 0\
-    0.35 35 0\
-  ]\
-}"
-
 
 class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
@@ -79,7 +57,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Set up various robot components
         self.robot = self.getSelf()
-        self.number_of_distance_sensors = 13
+        self.number_of_distance_sensors = 13   # Fixed according to ds that exist on robot
 
         # Set up gym spaces
         self.obs_window_size = obs_window_size
@@ -102,36 +80,19 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                      dtype=np.float64)
         self.action_space = Discrete(5)
 
+        self.distance_sensors = []
         self.ds_max = []
+        # Loop through the ds_group node to get max sensor values and initialize the devices
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
             robot_child = robot_children.getMFNode(childNodeIndex)  # NOQA
             if robot_child.getTypeName() == "Group":
-                group_children = robot_child.getField("children")
-                starting_rotation = -np.pi / 2
-                final_rotation = np.pi / 2
-                rot = starting_rotation
-                rot_increment = (final_rotation - starting_rotation) / (self.number_of_distance_sensors - 1)
+                ds_group = robot_child.getField("children")
                 for i in range(self.number_of_distance_sensors):
-                    group_children.importMFNodeFromString(i, DS_STRING)
-                    ds_node = group_children.getMFNode(i)
-                    ds_node.getField("name").setSFString("ds" + str(i))
-                    ds_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, rot])
+                    self.distance_sensors.append(self.getDevice(f"distance sensor({str(i)})"))
+                    self.distance_sensors[-1].enable(self.timestep)  # NOQA
+                    ds_node = ds_group.getMFNode(i)
                     self.ds_max.append(ds_node.getField("lookupTable").getMFVec3f(-1)[1])
-                    rot += rot_increment
-
-        # Step to update the added sensors
-        if super(Supervisor, self).step(self.timestep) == -1:
-            exit()
-
-        # Distance sensors are used for the robot to perceive obstacles
-        self.distance_sensors = []
-        try:
-            for i in range(self.number_of_distance_sensors):
-                self.distance_sensors.append(self.getDevice("ds" + str(i)))
-                self.distance_sensors[-1].enable(self.timestep)  # NOQA
-        except AttributeError:
-            warn("\nNo distance sensors initialized.\n ")
 
         # The weights can change how critical each sensor is for the final distance sensor reward
         if dist_sensors_weights is None:
@@ -241,7 +202,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
         tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 8)
-        obs = [tar_d, tar_a]
+        # Add distance, angle and touch sensor
+        obs = [tar_d, tar_a, self.touch_sensor.getValue()]  # NOQA
 
         # Add distance sensor values
         ds_values = []
