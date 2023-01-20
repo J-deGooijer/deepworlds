@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.36580646800241645 0.36472758778506104 0.8562472859379395 1.7282908998004662
-  position 0.37755694205355994 -7.809894986359122 8.191390123301382
+  orientation -0.3726585645355614 0.3752937335985688 0.8486932353918826 1.7271662530279803
+  position 0.0586906142148631 -7.0919067401719715 7.590233071181386
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -1.8439273217124466e-29 0.06 1.3969099999999985e-17
-        rotation 1 4.4768842929416385e-09 -4.476897538146793e-09 1.5707999999995352
+        translation -1.8433069685027653e-29 0.06 1.3969099999999985e-17
+        rotation 1 4.476884514985626e-09 -4.476897760191596e-09 1.5707999999995352
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -5.94374344517521e-29 -0.06 4.501310000000005e-17
-        rotation 1 -1.2155647406433173e-09 1.2155594047643975e-09 1.570799999999545
+        translation -2.972364760653368e-28 -0.06 4.501310000000005e-17
+        rotation 1 -1.2182061735609645e-09 1.2182008473845859e-09 1.570799999999545
         children [
           USE WHEEL
         ]
@@ -132,6 +132,133 @@ DEF ROBOT Robot {
       }
     }
     DEF DS Group {
+      children [
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 1.570796327
+          children [
+            Shape {
+              appearance PBRAppearance {
+              }
+              geometry Box {
+                size 0.01 0.01 0.01
+              }
+            }
+          ]
+          name "distance sensor(0)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 1.308996939
+          name "distance sensor(1)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 1.047197551
+          name "distance sensor(2)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 0.785398163
+          name "distance sensor(3)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 0.523598776
+          name "distance sensor(4)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 0.2617993877991494
+          name "distance sensor(5)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          name "distance sensor(6)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -0.261799
+          name "distance sensor(7)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -0.523598776
+          name "distance sensor(8)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -0.785398163
+          name "distance sensor(9)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -1.047197551
+          name "distance sensor(10)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -1.309
+          name "distance sensor(11)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+        DistanceSensor {
+          translation 0.051 0 0
+          rotation 0 0 1 -1.570796327
+          name "distance sensor(12)"
+          lookupTable [
+            0.02 0 0
+            0.35 35 0
+          ]
+        }
+      ]
     }
     TouchSensor {
       translation 0.005 0 0
