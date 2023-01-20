@@ -44,10 +44,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, steps_per_episode=10000, obs_window_size=1,
-                 on_target_threshold=0.1, on_target_limit=5,
+                 on_target_threshold=0.1,
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
-                 dist_path_weight=0.0, dist_sensors_weight=0.0,
+                 dist_path_weight=0.0, dist_sensors_weight=1.0,
                  tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
@@ -130,8 +130,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                    "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
                                    "tar_stop": tar_stop_weight, "collision": collision_weight}
 
-        self.on_target_counter = 0
-        self.on_target_limit = on_target_limit  # The number of steps robot should be on target before the target moves
         self.trigger_done = False  # Used to trigger the done condition
         self.just_reset = True
 
@@ -252,25 +250,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         else:
             ang_tar_reward = 0.0
 
-        # Bonus reward for reaching the target and for stopping
+        # Reward for reaching the target and for stopping
         tar_stop_reward = 0.0
         if current_distance < self.on_target_threshold:
-            if action == 3:
-                # If action is stop start counting up to on_target_limit
-                if self.on_target_counter >= self.on_target_limit:
-                    # Action was stop while on target for on_target_limit steps
-                    tar_stop_reward = 1.0 * self.on_target_counter
-                    self.on_target_counter = 0  # Reset counter
-                    self.trigger_done = True  # Terminate episode
-                else:
-                    self.on_target_counter += 1
-            else:
-                # Action is not stop, reset counter
-                tar_stop_reward = -0.1
-                self.on_target_counter = 0
-        else:
-            # Distance is over threshold, reset counter
-            self.on_target_counter = 0
+            tar_stop_reward = 1.0
+            self.trigger_done = True  # Terminate episode
 
         # Reward for avoiding obstacles
         dist_sensors_rewards = []
