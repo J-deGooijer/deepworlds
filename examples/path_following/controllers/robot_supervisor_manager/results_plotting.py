@@ -4,7 +4,8 @@ import json
 
 
 def multiple_plot(data_, labels=None,
-                  title="Title", x_label="x_label", y_label="y_label"):
+                  title="Title", x_label="x_label", y_label="y_label",
+                  save_path=None):
     if labels is None:
         labels = [f"label{i}" for i in range(len(data_))]
     x_axis = [i for i in range(len(data_[0]))]
@@ -15,6 +16,8 @@ def multiple_plot(data_, labels=None,
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
+    if save_path is not None:
+        plt.savefig(save_path)
     plt.show()
 
 
@@ -23,7 +26,7 @@ def moving_avg(data_, n, mode="valid"):
     return np.convolve(data_padded, np.ones((n,)) / n, mode=mode)
 
 
-results_path = ""
+results_path = "./experiments/window_20/window_20_results.json"
 
 with open(results_path) as json_file:
     results = json.load(json_file)
@@ -33,7 +36,8 @@ with open(results_path) as json_file:
     reward_per_episode_smoothed = moving_avg(results["episodes_reward"], moving_avg_n)
     multiple_plot([results["episodes_reward"], reward_per_episode_smoothed],
                   ["Reward per episode", "Moving average"],
-                  "Reward per episode", "episodes", "reward")
+                  "Reward per episode", "episodes", "reward",
+                  "./experiments/window_20/reward_per_episode.png")
     # Plot final distance to target per episode
     episodes_final_distance_smoothed = moving_avg(results["episodes_final_distance"], moving_avg_n)
     multiple_plot([results["episodes_final_distance"], episodes_final_distance_smoothed],
