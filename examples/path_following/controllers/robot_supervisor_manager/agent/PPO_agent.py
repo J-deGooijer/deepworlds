@@ -88,7 +88,8 @@ class PPOAgent:
             action = c.sample()
             return action.item(), action_prob[:, action.item()].item()
         elif type_ == "selectActionMax":
-            return np.argmax(action_prob).item(), 1.0
+            max_action = np.argmax(action_prob).item()
+            return max_action, action_prob[:, max_action].item()
 
     def save(self, path):
         """
