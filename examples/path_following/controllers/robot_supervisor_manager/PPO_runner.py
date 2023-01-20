@@ -141,7 +141,7 @@ def run():
                    "episodes_final_distance": all_episodes_final_distance
                    }
     with open(os.path.join(parent_dir, experiment_name + "_results.json"), 'w') as fp:
-        dump(result_dict, fp, indent=4)
+        dump(result_dict, fp)
 
     if not solved:
         print("Reached episode limit and task was not solved, deploying agent for testing...")
