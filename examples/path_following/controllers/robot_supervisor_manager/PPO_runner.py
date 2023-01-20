@@ -114,6 +114,9 @@ def run():
         average_episode_action_prob = mean(all_probs)
         all_episodes_avg_action_probs.append(average_episode_action_prob)
         print("Average episode action probability:", average_episode_action_prob)
+        for i in range(env.action_space.n):
+
+            print(f"")
         # Save the episode final distance achieved
         all_episodes_final_distance.append(episode_final_distance)
 

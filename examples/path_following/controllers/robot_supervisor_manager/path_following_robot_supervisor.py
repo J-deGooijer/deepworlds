@@ -6,6 +6,28 @@ from deepbots.supervisor import RobotSupervisorEnv
 from utilities import normalize_to_range, get_distance_from_target, get_angle_from_target
 from controller import Supervisor, Keyboard
 
+DS_STRING = "DistanceSensor {\
+  translation 0.051 0 0\
+  children [\
+    Shape {\
+      appearance PBRAppearance {\
+        baseColor 0.184314 0.596078 0.847059\
+        roughness 1\
+        metalness 0\
+      }\
+      geometry Box {\
+        size 0.01 0.01 0.01\
+      }\
+    }\
+  ]\
+  name \"ds\"\
+  lookupTable [\
+    0.02 0 0\
+    0.1 10 0\
+    0.35 35 0\
+  ]\
+}"
+
 
 class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
@@ -47,19 +69,28 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.1, on_target_limit=5,
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
-                 dist_path_weight=0.0, dist_sensors_weight=10.0,
+                 dist_path_weight=0.0, dist_sensors_weight=0.0,
                  tar_stop_weight=10.0, collision_weight=10.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
         """
         super().__init__()
+
+        # Set up various robot components
+        self.robot = self.getSelf()
+        self.number_of_distance_sensors = 13
+
         # Set up gym spaces
         self.obs_window_size = obs_window_size
         self.obs_list = []
-        self.single_obs_size = 9
-        single_obs_low = [0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        # Touch sensor, distance to target, angle to target
+        single_obs_low = [0.0, 0.0, -1.0]
+        # Append distance sensor values
+        single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
+        single_obs_high = [1.0, 1.0, 1.0]
+        single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
+        self.single_obs_size = len(single_obs_low)
         obs_low = []
         obs_high = []
         for _ in range(self.obs_window_size):
@@ -71,31 +102,46 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                      dtype=np.float64)
         self.action_space = Discrete(5)
 
-        # Set up various robot components
-        self.robot = self.getSelf()
+        self.ds_max = []
+        robot_children = self.robot.getField("children")
+        for childNodeIndex in range(robot_children.getCount()):
+            robot_child = robot_children.getMFNode(childNodeIndex)  # NOQA
+            if robot_child.getTypeName() == "Group":
+                group_children = robot_child.getField("children")
+                starting_rotation = -np.pi / 2
+                final_rotation = np.pi / 2
+                rot = starting_rotation
+                rot_increment = (final_rotation - starting_rotation) / (self.number_of_distance_sensors - 1)
+                for i in range(self.number_of_distance_sensors):
+                    group_children.importMFNodeFromString(i, DS_STRING)
+                    ds_node = group_children.getMFNode(i)
+                    ds_node.getField("name").setSFString("ds" + str(i))
+                    ds_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, rot])
+                    self.ds_max.append(ds_node.getField("lookupTable").getMFVec3f(-1)[1])
+                    rot += rot_increment
+
+        # Step to update the added sensors
+        if super(Supervisor, self).step(self.timestep) == -1:
+            exit()
 
         # Distance sensors are used for the robot to perceive obstacles
         self.distance_sensors = []
         try:
-            for ds_name in ["left", "outer_left", "inner_left", "center", "inner_right", "outer_right", "right"]:
-                self.distance_sensors.append(self.getDevice("ds_" + ds_name))
+            for i in range(self.number_of_distance_sensors):
+                self.distance_sensors.append(self.getDevice("ds" + str(i)))
                 self.distance_sensors[-1].enable(self.timestep)  # NOQA
-
         except AttributeError:
             warn("\nNo distance sensors initialized.\n ")
+
+        # The weights can change how critical each sensor is for the final distance sensor reward
+        if dist_sensors_weights is None:
+            self.dist_sensors_weights = [1.0 for _ in range(self.number_of_distance_sensors)]
+        # Normalize weights to add up to 1
+        self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
 
         # Touch sensor is used to terminate episode when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
         self.touch_sensor.enable(self.timestep)  # NOQA
-
-        # Assuming the robot has at least a distance sensor and all distance sensors have the same max value,
-        # this loop grabs the first distance sensor child of the robot and gets the max value it can output
-        # from its lookup table. This is used for normalizing the observation.
-        self.ds_max = []
-        for childNodeIndex in range(self.robot.getField("children").getCount()):
-            child = self.robot.getField("children").getMFNode(childNodeIndex)  # NOQA
-            if child.getTypeName() == "DistanceSensor":
-                self.ds_max.append(child.getField("lookupTable").getMFVec3f(-1)[1])
 
         # Set up motors
         self.left_motor = self.getDevice("left_wheel")
@@ -118,12 +164,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_dist_path = 0.0
         self.previous_angle_path = 0.0
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-
-        # The weights can change how critical each sensor is for the final distance sensor reward
-        if dist_sensors_weights is None:
-            self.dist_sensors_weights = [1.0, 1.25, 1.5, 2.0, 1.5, 1.25, 1.0]
-        # Normalize weights to add up to 1
-        self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
 
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
@@ -294,10 +334,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         dist_path_reward += ang_path_reward
 
-        # Check if the robot has collided with anything, assign negative reward and terminate episode
+        # Check if the robot has collided with anything, assign negative reward
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             collision_reward = -1.0
-            self.trigger_done = True
         else:
             collision_reward = 0.0
 
@@ -594,7 +633,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                           "max_grad_norm": agent.max_grad_norm,
                           "ppo_update_iters": agent.ppo_update_iters,
                           "gamma": agent.gamma,
-                        }
+                      }
                       }
         with open(path, 'w') as fp:
             json.dump(param_dict, fp, indent=4)

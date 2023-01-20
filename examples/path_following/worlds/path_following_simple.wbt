@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.4078357217192578 0.41071963793356336 0.815462692650899 1.7664884369195017
-  position 0.34456965029921244 -6.157287689088565 8.013893273188375
+  orientation -0.36580646800241645 0.36472758778506104 0.8562472859379395 1.7282908998004662
+  position 0.37755694205355994 -7.809894986359122 8.191390123301382
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 1.0014835710813626e-32 0.06 1.3969099999999985e-17
-        rotation 1 4.4775446511710496e-09 -4.477557898801839e-09 1.5707999999995352
+        translation -1.8439273217124466e-29 0.06 1.3969099999999985e-17
+        rotation 1 4.4768842929416385e-09 -4.476897538146793e-09 1.5707999999995352
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation 1.232595164407831e-32 -0.06 4.501310000000005e-17
-        rotation 1 -1.2149043824139056e-09 1.2148990441093504e-09 1.570799999999545
+        translation -5.94374344517521e-29 -0.06 4.501310000000005e-17
+        rotation 1 -1.2155647406433173e-09 1.2155594047643975e-09 1.570799999999545
         children [
           USE WHEEL
         ]
@@ -131,80 +131,7 @@ DEF ROBOT Robot {
         }
       }
     }
-    DistanceSensor {
-      translation 0.055 4.89665e-14 0
-      rotation 0 0 1 1.5708
-      name "ds_left"
-      lookupTable [
-        0.02 0 0
-        0.2 20 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.05 0 0
-      rotation 0 0 1 1.0471996938995747
-      name "ds_outer_left"
-      lookupTable [
-        0.02 0 0
-        0.229 22.9 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.05 0 0
-      rotation 0 0 1 0.5235996938995747
-      name "ds_inner_left"
-      lookupTable [
-        0.02 0 0
-        0.4 40 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.05 0 0
-      children [
-        Shape {
-          appearance PBRAppearance {
-            baseColor 0.184314 0.596078 0.847059
-            roughness 1
-            metalness 0
-          }
-          geometry Box {
-            size 0.01 0.01 0.01
-          }
-        }
-      ]
-      name "ds_center"
-      lookupTable [
-        0.02 0 0
-        0.1 10 0
-        0.35 35 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.05 0 0
-      rotation 0 0 1 -0.5235996938995747
-      name "ds_inner_right"
-      lookupTable [
-        0.02 0 0
-        0.4 40 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.05 0 0
-      rotation 0 0 1 -1.0472003061004251
-      name "ds_outer_right"
-      lookupTable [
-        0.02 0 0
-        0.229 22.9 0
-      ]
-    }
-    DistanceSensor {
-      translation 0.055 0 0
-      rotation 0 0 1 -1.5707953071795862
-      name "ds_right"
-      lookupTable [
-        0.02 0 0
-        0.2 20 0
-      ]
+    DEF DS Group {
     }
     TouchSensor {
       translation 0.005 0 0
