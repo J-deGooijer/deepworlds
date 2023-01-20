@@ -102,7 +102,9 @@ def run():
 
             state = new_state  # state for next step is current step's new_state
         # End of the episode, print and save some stats
-        print(f"Experiment \"{experiment_name}\" - episode #", episode_count + 1, "score:", env.episode_score)
+        print(f"{'#':#<50}")
+        print(f"Experiment \"{experiment_name}\" - episode #{episode_count + 1}\n ")
+        print(f"Total reward: {env.episode_score:.2f}\n ")
         # Save the episode's score
         env.episode_score_list.append(env.episode_score)
         # Save the episode's action probabilities
@@ -113,10 +115,12 @@ def run():
         # Save the average action probability
         average_episode_action_prob = mean(all_probs)
         all_episodes_avg_action_probs.append(average_episode_action_prob)
-        print("Average episode action probability:", average_episode_action_prob)
+        print(f"All actions average probability: {average_episode_action_prob * 100:.2f} %")
+        actions = ["forward", "left", "right", "stop", "backward"]
+        print("Average probability per action :")
         for i in range(env.action_space.n):
-
-            print(f"")
+            action = actions[i]
+            print(f"{'-':>22}{action:<9}: {mean(episode_action_probs[str(i)]) * 100:.2f} %")
         # Save the episode final distance achieved
         all_episodes_final_distance.append(episode_final_distance)
 
