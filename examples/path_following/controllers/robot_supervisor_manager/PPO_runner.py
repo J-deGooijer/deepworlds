@@ -13,15 +13,16 @@ def run():
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
 
-    parent_dir = "./experiments"
+    parent_dir = "./experiments"  # None to disable all saving
     experiment_name = "window_1"
 
-    if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
+    if parent_dir is not None:
+        if not os.path.exists(parent_dir):
+            os.mkdir(parent_dir)
 
-    parent_dir = os.path.join("./experiments", experiment_name)
-    if not os.path.exists(parent_dir):
-        os.mkdir(parent_dir)
+        parent_dir = os.path.join(parent_dir, experiment_name)
+        if not os.path.exists(parent_dir):
+            os.mkdir(parent_dir)
 
     episode_count = 0
     episode_limit = 10000
@@ -53,8 +54,9 @@ def run():
         4750: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 11},
         5000: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
     }
-    # Save experiment setup to json file
-    env.export_parameters(os.path.join(parent_dir, "experiment_parameters.json"), agent, difficulty, episode_limit)
+    if parent_dir is not None:
+        # Save experiment setup to json file
+        env.export_parameters(os.path.join(parent_dir, "experiment_parameters.json"), agent, difficulty, episode_limit)
 
     # Run outer loop until the episodes limit is reached or the task is solved
     while not solved and episode_count < episode_limit:
@@ -94,10 +96,11 @@ def run():
                 if episode_count % episodes_per_checkpoint == 0 \
                         and episode_count != 0 \
                         or episode_count == episode_limit - 1:
-                    checkpoint_dir = os.path.join(parent_dir, "checkpoints")
-                    if not os.path.exists(checkpoint_dir):
-                        os.mkdir(checkpoint_dir)
-                    agent.save(os.path.join(checkpoint_dir, str(episode_count)))
+                    if parent_dir is not None:
+                        checkpoint_dir = os.path.join(parent_dir, "checkpoints")
+                        if not os.path.exists(checkpoint_dir):
+                            os.mkdir(checkpoint_dir)
+                        agent.save(os.path.join(checkpoint_dir, str(episode_count)))
                 break
 
             state = new_state  # state for next step is current step's new_state
@@ -140,8 +143,9 @@ def run():
                    "episodes_action_probs": all_episodes_action_probs,
                    "episodes_final_distance": all_episodes_final_distance
                    }
-    with open(os.path.join(parent_dir, experiment_name + "_results.json"), 'w') as fp:
-        dump(result_dict, fp)
+    if parent_dir is not None:
+        with open(os.path.join(parent_dir, experiment_name + "_results.json"), 'w') as fp:
+            dump(result_dict, fp)
 
     if not solved:
         print("Reached episode limit and task was not solved, deploying agent for testing...")
@@ -155,8 +159,9 @@ def run():
             selected_action, action_prob = agent.work(state, type_="selectActionMax")
             state, reward, done, _ = env.step(selected_action)
             env.episode_score += reward  # Accumulate episode reward
-
             if done or step == env.steps_per_episode - 1:
-                print("Reward accumulated =", env.episode_score)
+                print(f"{'#':#<50}")
+                print(f"Experiment \"{experiment_name}\"\n ")
+                print(f"Total reward: {env.episode_score:.2f}\n ")
                 env.episode_score = 0
                 state = env.reset()
