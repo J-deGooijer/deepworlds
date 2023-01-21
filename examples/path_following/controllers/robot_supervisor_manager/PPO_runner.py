@@ -31,6 +31,7 @@ def run():
     all_episodes_action_probs = []
     all_episodes_avg_action_probs = []
     all_episodes_final_distance = []
+    all_episodes_rewards = []
     difficulty = {
         0: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 1},
         250: {"number_of_obstacles": 5, "min_target_dist": 1, "max_target_dist": 2},
@@ -68,6 +69,7 @@ def run():
         # This dict holds the probabilities of each chosen action
         episode_action_probs = {str(i): [] for i in range(env.action_space.n)}
         episode_final_distance = 1.0  # This is the final distance reached in the episode normalized in [0.0, 1.0]
+        episode_reward_sums = {"target": 0, "sensors": 0, "path": 0, "reach_target": 0, "collision": 0}
 
         # Inner loop is the episode loop
         for step in range(env.steps_per_episode):
@@ -81,10 +83,12 @@ def run():
             new_state, reward, done, info = env.step(selected_action)
 
             # Save the current state transition in agent's memory
-            trans = Transition(state, selected_action, action_prob, reward, new_state)
+            trans = Transition(state, selected_action, action_prob, reward["total"], new_state)
             agent.store_transition(trans)
 
-            env.episode_score += reward  # Accumulate episode reward
+            env.episode_score += reward["total"]  # Accumulate episode reward
+            for key in episode_reward_sums.keys():
+                episode_reward_sums[key] += reward[key]  # Accumulate various rewards
             if done or step == env.steps_per_episode - 1:
                 # Save final distance achieved from final state
                 episode_final_distance = state[0]
@@ -107,9 +111,14 @@ def run():
         # End of the episode, print and save some stats
         print(f"{'#':#<50}")
         print(f"Experiment \"{experiment_name}\" - episode #{episode_count + 1}\n ")
-        print(f"Total reward: {env.episode_score:.2f}\n ")
+        print("Reward")
+        print(f"{'Total':<12}: {env.episode_score:.2f}")
+        for key in episode_reward_sums.keys():
+            print(f"{key[0].upper() + key[1:]:<12}: {episode_reward_sums[key]:.2f}")
+        print(" ")
         # Save the episode's score
         env.episode_score_list.append(env.episode_score)
+        all_episodes_rewards.append(episode_reward_sums)
         # Save the episode's action probabilities
         all_episodes_action_probs.append(episode_action_probs)
         all_probs = []
@@ -118,12 +127,11 @@ def run():
         # Save the average action probability
         average_episode_action_prob = mean(all_probs)
         all_episodes_avg_action_probs.append(average_episode_action_prob)
-        print(f"All actions average probability: {average_episode_action_prob * 100:.2f} %")
+        print(f"All actions average probability : {average_episode_action_prob * 100:.2f} %")
         actions = ["forward", "left", "right", "stop", "backward"]
-        print("Average probability per action :")
         for i in range(env.action_space.n):
             action = actions[i]
-            print(f"{'-':>22}{action:<9}: {mean(episode_action_probs[str(i)]) * 100:.2f} %")
+            print(f"Average probability for {action:<8}: {mean(episode_action_probs[str(i)]) * 100:.2f} %")
         # Save the episode final distance achieved
         all_episodes_final_distance.append(episode_final_distance)
 
@@ -139,6 +147,7 @@ def run():
 
     from json import dump
     result_dict = {"episodes_reward": env.episode_score_list,
+                   "episodes_reward_breakdown": all_episodes_rewards,
                    "episodes_avg_action_prob": all_episodes_avg_action_probs,
                    "episodes_action_probs": all_episodes_action_probs,
                    "episodes_final_distance": all_episodes_final_distance
@@ -155,13 +164,34 @@ def run():
     state = env.reset()
     env.episode_score = 0
     while True:
+        episode_action_probs = {str(i): [] for i in range(env.action_space.n)}
+        episode_reward_sums = {"target": 0, "sensors": 0, "path": 0, "reach_target": 0, "collision": 0}
         for step in range(env.steps_per_episode):
             selected_action, action_prob = agent.work(state, type_="selectActionMax")
             state, reward, done, _ = env.step(selected_action)
-            env.episode_score += reward  # Accumulate episode reward
+
+            episode_action_probs[str(selected_action)].append(action_prob)
+
+            env.episode_score += reward["total"]  # Accumulate episode reward
+            for key in episode_reward_sums.keys():
+                episode_reward_sums[key] += reward[key]  # Accumulate various rewards
+
             if done or step == env.steps_per_episode - 1:
                 print(f"{'#':#<50}")
                 print(f"Experiment \"{experiment_name}\"\n ")
-                print(f"Total reward: {env.episode_score:.2f}\n ")
+                print("Reward")
+                print(f"{'Total':<12}: {env.episode_score:.2f}")
+                for key in episode_reward_sums.keys():
+                    print(f"{key[0].upper() + key[1:]:<12}: {episode_reward_sums[key]:.2f}")
+                print(" ")
+                all_probs = []
+                for i in range(env.action_space.n):
+                    all_probs.extend(episode_action_probs[str(i)])
+                average_episode_action_prob = mean(all_probs)
+                print(f"All actions average probability : {average_episode_action_prob * 100:.2f} %")
+                actions = ["forward", "left", "right", "stop", "backward"]
+                for i in range(env.action_space.n):
+                    action = actions[i]
+                    print(f"Average probability for {action:<8}: {mean(episode_action_probs[str(i)]) * 100:.2f} %")
                 env.episode_score = 0
                 state = env.reset()
