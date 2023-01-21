@@ -44,6 +44,7 @@ with open(results_path) as json_file:
                   ["Reward per episode", "Moving average"],
                   "Reward per episode", "episodes", "reward",
                   save_name)
+    # TODO Plot reward breakdown per episode
     # Plot final distance to target per episode
     save_name = join(experiment_folder, "dist.png")
     episodes_final_distance_smoothed = moving_avg(results["episodes_final_distance"], moving_avg_n)
