@@ -329,9 +329,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         if self.just_reset:
             self.just_reset = False
-            return 0.0
+            return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
         else:
-            return reward
+            return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
+                    "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
+                    "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
 
     def is_done(self):
         """
