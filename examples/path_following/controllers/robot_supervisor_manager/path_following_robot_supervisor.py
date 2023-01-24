@@ -43,7 +43,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self, steps_per_episode=10000, obs_window_size=1,
+    def __init__(self, description, steps_per_episode=10000, obs_window_size=1,
                  on_target_threshold=0.1,
                  dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
@@ -54,7 +54,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         TODO docstring
         """
         super().__init__()
-
+        self.experiment_desc = description
         # Set up various robot components
         self.robot = self.getSelf()
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
@@ -62,8 +62,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Set up gym spaces
         self.obs_window_size = obs_window_size
         self.obs_list = []
-        # Touch sensor, distance to target, angle to target
-        single_obs_low = [0.0, 0.0, -1.0]
+        # Distance to target, angle to target, touch sensor
+        single_obs_low = [0.0, -1.0, 0.0]
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
         single_obs_high = [1.0, 1.0, 1.0]
@@ -301,7 +301,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # print(f"tar stop : {weighted_reach_tar_reward}")
         # print(f"path d+a : {weighted_dist_path_reward}")
         # print(f"sens dist: {weighted_dist_sensors_reward}")
-        # print(f"col obst : {weighted_reach_tar_reward}")
+        # print(f"col obst : {weighted_collision_reward}")
 
         # Baseline reward is distance and angle to target
         reward = weighted_dist_tar_reward + weighted_ang_tar_reward
@@ -489,9 +489,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.left_motor.setVelocity(v_left)  # NOQA
         self.right_motor.setVelocity(v_right)  # NOQA
 
-    def get_distances(self):
-        return self.left_distance_sensor.getValue(), self.right_distance_sensor.getValue()  # NOQA
-
     def randomize_map(self):
         """
         TODO docstring
@@ -575,7 +572,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.get_default_observation())).float().unsqueeze(0).cuda())
             critic_size = agent.critic_net.get_size(from_numpy(np.array(
                 self.get_default_observation())).float().unsqueeze(0).cuda())
-        param_dict = {"steps_per_episode": self.steps_per_episode, "episode_limit": episode_limit,
+        param_dict = {"experiment_description": self.experiment_desc,
+                      "steps_per_episode": self.steps_per_episode, "episode_limit": episode_limit,
                       "obs_window_size": self.obs_window_size,
                       "on_target_threshold": self.on_target_threshold,
                       "dist_sensors_weights": list(self.dist_sensors_weights),
