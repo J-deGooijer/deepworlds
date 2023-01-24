@@ -6,15 +6,18 @@ from utilities import plot_data
 
 
 def run():
+    parent_dir = "./experiments"  # None to disable all saving
+    experiment_name = "window_1"
+    experiment_description = """
+    No desc
+    """
+
     # Initialize supervisor object
-    env = PathFollowingRobotSupervisor()
+    env = PathFollowingRobotSupervisor(experiment_description)
 
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n)
-
-    parent_dir = "./experiments"  # None to disable all saving
-    experiment_name = "window_1"
 
     if parent_dir is not None:
         if not os.path.exists(parent_dir):
