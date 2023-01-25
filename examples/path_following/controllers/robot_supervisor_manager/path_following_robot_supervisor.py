@@ -149,9 +149,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Obstacle references
         self.all_obstacles = []
+        self.all_obstacles_starting_positions = []
         for childNodeIndex in range(self.getFromDef("OBSTACLES").getField("children").getCount()):
             child = self.getFromDef("OBSTACLES").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_obstacles.append(child)
+            self.all_obstacles_starting_positions.append(child.getField("translation").getSFVec3f())
 
         # Path node references
         self.all_path_nodes = []
@@ -347,11 +349,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             return True
         return False
 
+    def remove_objects(self):
+        """
+        Removes objects from arena.
+        """
+        for object_node, starting_pos in zip(self.all_obstacles, self.all_obstacles_starting_positions):
+            object_node.getField("translation").setSFVec3f(starting_pos)
+            object_node.getField("rotation").setSFRotation([0, 0, 1, 0])
+
     def reset(self):
         """
-        Resets the simulation using deepbots default reset and re-initializes robot and target positions.
+        Resets the simulation physics and objects and re-initializes robot and target positions.
         """
-        starting_obs = super().reset()
+        self.remove_objects()
+        self.simulationResetPhysics()
+        super(Supervisor, self).step(int(self.getBasicTimeStep()))
+        starting_obs = self.get_default_observation()
         # Reset path
         self.path_to_target = None
 
