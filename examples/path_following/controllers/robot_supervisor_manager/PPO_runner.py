@@ -148,7 +148,7 @@ def run():
     except Exception as e:
         print("Plotting failed:", e)
 
-    from json import dump
+    import pickle
     result_dict = {"episodes_reward": env.episode_score_list,
                    "episodes_reward_breakdown": all_episodes_rewards,
                    "episodes_avg_action_prob": all_episodes_avg_action_probs,
@@ -156,8 +156,8 @@ def run():
                    "episodes_final_distance": all_episodes_final_distance
                    }
     if parent_dir is not None:
-        with open(os.path.join(parent_dir, experiment_name + "_results.json"), 'w') as fp:
-            dump(result_dict, fp)
+        with open(os.path.join(parent_dir, experiment_name + "_results.pkl"), 'wb') as f:
+            pickle.dump(result_dict, f)
 
     if not solved:
         print("Reached episode limit and task was not solved, deploying agent for testing...")
