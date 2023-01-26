@@ -54,6 +54,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         TODO docstring
         """
         super().__init__()
+        self.viewpoint = self.getFromDef("VIEWPOINT")
+        self.viewpoint_position = self.viewpoint.getField("position").getSFVec3f()
+        self.viewpoint_orientation = self.viewpoint.getField("orientation").getSFRotation()
+
         self.experiment_desc = description
         # Set up various robot components
         self.robot = self.getSelf()
@@ -377,6 +381,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.path_to_target = self.path_to_target[1:]  # Remove starting node
         self.place_path(self.path_to_target)
         self.just_reset = True
+
+        # Finally, reset viewpoint, so it plays nice
+        self.viewpoint.getField("position").setSFVec3f(self.viewpoint_position)
+        self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
+
         return starting_obs
 
     def solved(self):
