@@ -157,9 +157,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Path node references
         self.all_path_nodes = []
+        self.all_path_nodes_starting_positions = []
         for childNodeIndex in range(self.getFromDef("PATH").getField("children").getCount()):
             child = self.getFromDef("PATH").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_path_nodes.append(child)
+            self.all_path_nodes_starting_positions.append(child.getField("translation").getSFVec3f())
 
         self.number_of_obstacles = 0  # The number of obstacles to use, start with 0
         if self.number_of_obstacles > len(self.all_obstacles):
@@ -349,19 +351,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             return True
         return False
 
-    def remove_objects(self):
-        """
-        Removes objects from arena.
-        """
-        for object_node, starting_pos in zip(self.all_obstacles, self.all_obstacles_starting_positions):
-            object_node.getField("translation").setSFVec3f(starting_pos)
-            object_node.getField("rotation").setSFRotation([0, 0, 1, 0])
-
     def reset(self):
         """
         Resets the simulation physics and objects and re-initializes robot and target positions.
         """
-        self.remove_objects()
         self.simulationResetPhysics()
         super(Supervisor, self).step(int(self.getBasicTimeStep()))
         starting_obs = self.get_default_observation()
@@ -502,10 +495,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.left_motor.setVelocity(v_left)  # NOQA
         self.right_motor.setVelocity(v_right)  # NOQA
 
+    def remove_objects(self):
+        """
+        Removes objects from arena.
+        """
+        for object_node, starting_pos in zip(self.all_obstacles, self.all_obstacles_starting_positions):
+            object_node.getField("translation").setSFVec3f(starting_pos)
+            object_node.getField("rotation").setSFRotation([0, 0, 1, 0])
+        for path_node, starting_pos in zip(self.all_path_nodes, self.all_path_nodes_starting_positions):
+            path_node.getField("translation").setSFVec3f(starting_pos)
+            path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
+
     def randomize_map(self):
         """
         TODO docstring
         """
+        self.remove_objects()
         self.map.empty()
         self.map.add_random(self.robot)  # Add robot in a random position
         for node in random.sample(self.all_obstacles, self.number_of_obstacles):
