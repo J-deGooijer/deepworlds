@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+import pickle
 from os.path import join
 
 
@@ -33,8 +34,12 @@ experiment_name = "window_1"
 experiment_folder = join(parent_dir, experiment_name)
 results_path = join(experiment_folder, "window_1_results.json")
 
-with open(results_path) as json_file:
-    results = json.load(json_file)
+read_flag = "r" if results_path.split('.')[-1] == "json" else "rb"
+with open(results_path, read_flag) as f:
+    if read_flag == "r":
+        results = json.load(f)
+    else:
+        results = pickle.load(f)
     moving_avg_n = len(results["episodes_reward"]) // 10
 
     # Plot reward per episode
