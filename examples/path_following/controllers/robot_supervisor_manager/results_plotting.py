@@ -53,7 +53,7 @@ with open(results_path) as json_file:
                   "Final distance per episode", "episodes", "final distance",
                   save_name)
     # Plot total average action probability per episode
-    join(experiment_folder, "avg_act.png")
+    save_name = join(experiment_folder, "avg_act.png")
     episodes_avg_action_prob_smoothed = moving_avg(results["episodes_avg_action_prob"], moving_avg_n)
     multiple_plot([results["episodes_avg_action_prob"], episodes_avg_action_prob_smoothed],
                   ["Average action probability per episode", "Moving average"],
