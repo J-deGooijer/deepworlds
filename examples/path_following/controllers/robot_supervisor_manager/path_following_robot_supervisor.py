@@ -118,8 +118,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Set up misc
         self.steps_per_episode = steps_per_episode
-        self.episode_score = 0
-        self.episode_score_list = []
 
         # Target-related stuff
         self.target_position = [0.0, 0.0]
@@ -387,31 +385,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
 
         return starting_obs
-
-    def solved(self):
-        """
-        This method checks whether the task is solved, so training terminates.
-        Solved condition requires that the average episode score of last 10 episodes is over half the
-        theoretical maximum of an episode's reward. Empirical observations show that when this average
-        reward per episode is achieved, the agent is well-trained.
-
-        The maximum value is found empirically in various map sizes and is calculated dynamically with
-        a linear regression fit based on the current map size assuming the map is square.
-
-        This maximum is infeasible for the agent to achieve as it requires the agent to have a perfect policy
-        and that a straight unobstructed path to the target exists from the starting position.
-        Thus, it is divided by 2 which in practice proved to be achievable.
-
-        :return: True if task is solved, False otherwise
-        :rtype: bool
-        """
-        # TODO redo this
-        # avg_score_limit = (1317.196 * self.map.size()[0] + 4820.286) * 10
-        #
-        # if len(self.episode_score_list) >= 10:  # Over 10 episodes thus far
-        #     if np.mean(self.episode_score_list[-10:]) > avg_score_limit:  # Last 10 episode scores average value
-        #         return True
-        return False
 
     def get_default_observation(self):
         """
