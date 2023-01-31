@@ -32,7 +32,7 @@ def moving_avg(data_, n, mode="valid"):
 parent_dir = "./experiments"
 experiment_name = "window_1"
 experiment_folder = join(parent_dir, experiment_name)
-results_path = join(experiment_folder, "window_1_results.json")
+results_path = join(experiment_folder, experiment_name + "_results.pkl")
 
 read_flag = "r" if results_path.split('.')[-1] == "json" else "rb"
 with open(results_path, read_flag) as f:
