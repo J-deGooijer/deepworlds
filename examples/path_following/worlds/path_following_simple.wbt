@@ -21,7 +21,7 @@ TexturedBackgroundLight {
 }
 RectangleArena {
   rotation 0 1 0 0
-  floorSize 4 4
+  floorSize 3.75 3.75
   floorTileSize 1 1
   floorAppearance Parquetry {
   }
