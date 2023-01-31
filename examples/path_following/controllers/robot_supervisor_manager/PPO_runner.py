@@ -51,7 +51,7 @@ def run():
     test_diff = 1000  # Difficulty for testing the loaded checkpoint
     test_action = "selectActionMax"
 
-    save_to_disk = False  # False to disable all saving
+    save_to_disk = True  # False to disable all saving
     parent_dir = "./experiments"
     experiment_name = "window_1"
     experiment_description = """
