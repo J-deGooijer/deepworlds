@@ -47,7 +47,12 @@ def print_episode_info(env, experiment_name, episode_count, average_episode_acti
 
 
 def run():
-    parent_dir = "./experiments"  # None to disable all saving
+    load_checkpoint = None  # Set to string to load checkpoint
+    test_diff = 1000  # Difficulty for testing the loaded checkpoint
+    test_action = "selectActionMax"
+
+    save_to_disk = False  # False to disable all saving
+    parent_dir = "./experiments"
     experiment_name = "window_1"
     experiment_description = """
     No desc
@@ -93,8 +98,13 @@ def run():
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, use_cuda=cuda)
 
+    if load_checkpoint is not None:
+        agent.load(os.path.join(parent_dir, experiment_name, "checkpoints", str(load_checkpoint)))  # NOQA
+        env.set_difficulty(difficulty[test_diff])
+        solved = True
+
     # Initialize directories and save experiment parameters
-    if parent_dir is not None:
+    if save_to_disk:
         if not os.path.exists(parent_dir):
             os.mkdir(parent_dir)
         parent_dir = os.path.join(parent_dir, experiment_name)
@@ -152,7 +162,7 @@ def run():
         if episode_count % episodes_per_checkpoint == 0 \
                 and episode_count != 0 \
                 or episode_count == episode_limit - 1:
-            if parent_dir is not None:
+            if save_to_disk:
                 checkpoint_dir = os.path.join(parent_dir, "checkpoints")
                 if not os.path.exists(checkpoint_dir):
                     os.mkdir(checkpoint_dir)
@@ -208,7 +218,7 @@ def run():
                    "episodes_avg_action_prob": training_metrics["avg_action_probs"],
                    "episodes_final_distance": training_metrics["final_distances"]
                    }
-    if parent_dir is not None:
+    if save_to_disk:
         with open(os.path.join(parent_dir, experiment_name + "_results.pkl"), "wb") as f:
             pickle.dump(result_dict, f)
 
@@ -225,7 +235,7 @@ def run():
                            "action_probs": {str(i): [] for i in range(env.action_space.n)}
                            }
         for step in range(env.steps_per_episode):
-            selected_action, action_prob = agent.work(state, type_="selectActionMax")
+            selected_action, action_prob = agent.work(state, type_=test_action)
             state, reward, done, _ = env.step(selected_action)
 
             episode_metrics["action_probs"][str(selected_action)].append(action_prob)
