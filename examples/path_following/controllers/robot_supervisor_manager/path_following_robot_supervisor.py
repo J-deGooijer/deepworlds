@@ -312,9 +312,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Baseline reward is distance and angle to target
         reward = weighted_dist_tar_reward + weighted_ang_tar_reward
 
-        # Overwrite baseline reward with distance sensor reward if it is not zero
-        if weighted_dist_sensors_reward != 0.0:
-            reward = weighted_dist_sensors_reward
+        # Add distance sensor reward
+        reward += weighted_dist_sensors_reward
 
         # Add distance to path reward
         reward += weighted_dist_path_reward
