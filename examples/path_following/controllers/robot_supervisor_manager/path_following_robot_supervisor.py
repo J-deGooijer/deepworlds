@@ -243,12 +243,17 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward components
 
         # Reward for decreasing distance to the target
-        # Distance to target reward scales between -1.0 and 1.0, based on how much it increases or decreases
+        # Distance to target reward scales between -1.5 and 0.5, based on how much it increases or decreases
+        # Normalization is non-symmetric around 0.0, meaning that when the distance is not changing,
+        # i.e. the robot isn't moving the reward is negative.
+        # This is intentional to force the robot to move, in addition to moving towards the target.
         dist_tar_reward = round(normalize_to_range(self.previous_distance - current_distance,
-                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
+                                                   -0.0013, 0.0013, -1.5, 0.5), 2)
 
         # Reward for decreasing angle to the target
-        # Angle to target reward is 1.0 for decreasing angle, and -1.0 for increasing angle
+        # Angle to target reward is 1.0 for decreasing angle, and -1.5 for increasing angle
+        # Increasing angle reward absolute value is larger than decreasing one, so they don't cancel out when the robot
+        # is constantly turning in one direction.
         if (self.previous_angle - current_angle) > 0.001:
             ang_tar_reward = 1.0
         elif (self.previous_angle - current_angle) < -0.001:
