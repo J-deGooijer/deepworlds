@@ -245,21 +245,10 @@ def run():
                 episode_metrics["reward_sums"][key] += reward[key]  # Accumulate various rewards
 
             if done or step == env.steps_per_episode - 1:
-                print(f"{'#':#<50}")
-                print(f"Experiment \"{experiment_name}\"\n ")
-                print("Reward")
-                print(f"{'Total':<12}: {episode_metrics['reward']:.2f}")
-                for key in episode_metrics["reward_sums"].keys():
-                    print(f"{key[0].upper() + key[1:]:<12}: {episode_metrics['reward_sums'][key]:.2f}")
-                print(" ")
                 all_probs = []
                 for i in range(env.action_space.n):
                     all_probs.extend(episode_metrics["action_probs"][str(i)])
                 average_episode_action_prob = mean(all_probs)
-                print(f"All actions average probability : {average_episode_action_prob * 100:.2f} %")
-                actions = ["forward", "left", "right", "stop", "backward"]
-                for i in range(env.action_space.n):
-                    action = actions[i]
-                    print(f"Average probability for {action:<8}: {mean(episode_metrics['action_probs'][str(i)]) * 100:.2f} %")
-                episode_metrics["reward"] = 0
+                print_episode_info(env, experiment_name, episode_count, average_episode_action_prob, episode_metrics)
                 state = env.reset()
+                break
