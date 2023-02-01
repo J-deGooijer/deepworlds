@@ -30,13 +30,18 @@ class PPOAgent:
         adjust it as needed.
 
         Max grad norm: This parameter controls the maximum norm of the gradient used to update the policy.
-        A larger value will allow the gradient to be larger, while a smaller value will make the updates more conservative.
-        A good starting point can be 0.5, this will allow the gradients to be large,
-        but not too large that they cause oscillations.
+        A larger value will allow the gradient to be larger, while a smaller value will make the updates more
+        conservative. A good starting point can be 0.5, this will allow the gradients to be large, but not too
+        large that they cause oscillations.
+
+        The gamma parameter is a discount factor that determines the importance of future rewards in the algorithm.
+        It ranges from 0 to 1 and sets the extent to which future rewards will be discounted relative to immediate
+        rewards. A value of 1 means that all future rewards are equally important, while a value close to 0 means that
+        future rewards have little impact on the optimization process.
 
         PPO update iterations: This parameter controls the number of times the policy is updated during each iteration
-        of the algorithm. More update steps means more fine-tuning of the policy, but it will also take more computational
-        resources. You can start with 5 update steps and adjust as needed.
+        of the algorithm. More update steps means more fine-tuning of the policy, but it will also take more
+        computational resources. You can start with 5 update steps and adjust as needed.
         """
         super().__init__()
         if seed is not None:
