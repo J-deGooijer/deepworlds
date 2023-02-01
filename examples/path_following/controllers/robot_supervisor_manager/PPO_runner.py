@@ -58,10 +58,22 @@ def run():
     No desc
     """
 
-    cuda = False
+    cuda = True
+    steps_per_episode = 5000
     episode_count = 0
-    episode_limit = 10000
+    episode_limit = 7500
     episodes_per_checkpoint = 250
+    window = 10
+    on_tar_threshold = 0.1
+    ds_sensors_weights = None
+    tar_dis_weight = 4.0
+    tar_ang_weight = 4.0
+    path_dis_weight = 0.0
+    ds_weight = 2.0
+    tar_reach_weight = 1000.0
+    col_weight = 1.0
+    map_w, map_h = 7, 7
+    cell_size = None
     solved = False  # Whether the solved requirement is met
     training_metrics = {"total_rewards": [], "rewards_breakdown": [],
                         "action_probs": [], "avg_action_probs": [],
@@ -93,7 +105,9 @@ def run():
     }
 
     # Initialize supervisor object
-    env = PathFollowingRobotSupervisor(experiment_description)
+    env = PathFollowingRobotSupervisor(experiment_description, steps_per_episode, window, on_tar_threshold,
+                                       ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
+                                       ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size)
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, use_cuda=cuda)
@@ -205,10 +219,13 @@ def run():
         # Plot the main convergence metrics of reward per episode and average action probability per episode
         # np.convolve is used as a moving average, see https://stackoverflow.com/a/22621523
         moving_avg_n = 10
-        plot_data(convolve(training_metrics["total_rewards"], ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
+        plot_data(convolve(training_metrics["total_rewards"], ones((moving_avg_n,)) / moving_avg_n,  # NOQA
+                           mode='valid'),
                   "episode", "episode score", "Episode scores over episodes - " + experiment_name)
-        plot_data(convolve(training_metrics["avg_action_probs"], ones((moving_avg_n,)) / moving_avg_n, mode='valid'),  # NOQA
-                  "episode", "average action probability", "Average action probability over episodes - " + experiment_name)
+        plot_data(convolve(training_metrics["avg_action_probs"], ones((moving_avg_n,)) / moving_avg_n,  # NOQA
+                           mode='valid'),
+                  "episode", "average action probability", "Average action probability over episodes - "
+                  + experiment_name)
     except Exception as e:
         print("Plotting failed:", e)
 
