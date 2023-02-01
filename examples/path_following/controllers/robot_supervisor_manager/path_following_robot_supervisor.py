@@ -49,11 +49,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  target_distance_weight=1.0, tar_angle_weight=1.0,
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1000.0, collision_weight=1000.0,
-                 map_width=7, map_height=7, cell_size=None):
+                 map_width=7, map_height=7, cell_size=None, verbose=False):
         """
         TODO docstring
         """
         super().__init__()
+        self.verbose = verbose
+
         self.viewpoint = self.getFromDef("VIEWPOINT")
         self.viewpoint_position = self.viewpoint.getField("position").getSFVec3f()
         self.viewpoint_orientation = self.viewpoint.getField("orientation").getSFRotation()
@@ -66,11 +68,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Set up gym spaces
         self.obs_window_size = obs_window_size
         self.obs_list = []
-        # Distance to target, angle to target, touch sensor
-        single_obs_low = [0.0, -1.0, 0.0]
+        # Distance to target, angle to target
+        single_obs_low = [0.0, -1.0]
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
-        single_obs_high = [1.0, 1.0, 1.0]
+        single_obs_high = [1.0, 1.0]
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
         self.single_obs_size = len(single_obs_low)
         obs_low = []
@@ -202,19 +204,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         # Target distance
         tar_d = get_distance_from_target(self.robot, self.target)
-        tar_d = round(normalize_to_range(tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True), 8)
+        tar_d = normalize_to_range(tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True)
         # Angle between robot facing and target
         tar_a = get_angle_from_target(self.robot, self.target)
-        tar_a = round(normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 8)
-        # Add distance, angle and touch sensor
-        obs = [tar_d, tar_a, self.touch_sensor.getValue()]  # NOQA
+        tar_a = normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True)
+        # Add distance, angle
+        obs = [tar_d, tar_a]  # NOQA
 
         # Add distance sensor values
         ds_values = []
         for i in range(len(self.distance_sensors)):
             ds = self.distance_sensors[i]
-            ds_values.append(ds.getValue())  # NOQA
-            ds_values[-1] = round(normalize_to_range(ds_values[-1], 0, self.ds_max[i], 1.0, 0.0), 8)
+            ds_values.append(normalize_to_range(ds.getValue(), 0, self.ds_max[i], 1.0, 0.0))  # NOQA
         obs.extend(ds_values)
 
         self.obs_list = self.obs_list[self.single_obs_size:]  # Drop oldest
@@ -254,12 +255,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Angle to target reward is 1.0 for decreasing angle, and -1.5 for increasing angle
         # Increasing angle reward absolute value is larger than decreasing one, so they don't cancel out when the robot
         # is constantly turning in one direction.
+        ang_tar_reward = 0.0
         if (self.previous_angle - current_angle) > 0.001:
             ang_tar_reward = 1.0
         elif (self.previous_angle - current_angle) < -0.001:
             ang_tar_reward = -1.5
-        else:
-            ang_tar_reward = 0.0
 
         # Reward for reaching the target
         reach_tar_reward = 0.0
@@ -292,10 +292,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         dist_path_reward += ang_path_reward
 
         # Check if the robot has collided with anything, assign negative reward
+        collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             collision_reward = -1.0
-        else:
-            collision_reward = 0.0
 
         ################################################################################################################
         # Total reward calculation
@@ -307,13 +306,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
-        # print(f"tar dist : {weighted_dist_tar_reward}")
-        # print(f"tar ang  : {weighted_ang_tar_reward}")
-        # print(f"tar stop : {weighted_reach_tar_reward}")
-        # print(f"path d+a : {weighted_dist_path_reward}")
-        # print(f"sens dist: {weighted_dist_sensors_reward}")
-        # print(f"col obst : {weighted_collision_reward}")
-
         # Baseline reward is distance and angle to target
         reward = weighted_dist_tar_reward + weighted_ang_tar_reward
 
@@ -323,14 +315,23 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Add distance to path reward
         reward += weighted_dist_path_reward
 
+        # Add collision penalty
+        reward += weighted_collision_reward
+
         # Stop reward overrides other rewards if robot is within target threshold
         if weighted_reach_tar_reward != 0.0:
             reward = weighted_reach_tar_reward
-        # Collision reward overrides all other rewards, because it means the robot has collided with an obstacle
-        if weighted_collision_reward != 0.0:
-            reward = weighted_collision_reward
-        # print(f"final reward: {reward}")
-        # print("-------")
+
+        if self.verbose:
+            print(f"tar dist : {weighted_dist_tar_reward}")
+            print(f"tar ang  : {weighted_ang_tar_reward}")
+            print(f"tar stop : {weighted_reach_tar_reward}")
+            print(f"path d+a : {weighted_dist_path_reward}")
+            print(f"sens dist: {weighted_dist_sensors_reward}")
+            print(f"col obst : {weighted_collision_reward}")
+            print(f"final reward: {reward}")
+            print("-------")
+
         self.previous_distance = current_distance
         self.previous_angle = current_angle
         self.previous_dist_path = current_dist_path
