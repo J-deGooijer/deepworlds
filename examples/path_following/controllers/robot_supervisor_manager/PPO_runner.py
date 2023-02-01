@@ -58,11 +58,21 @@ def run():
     No desc
     """
 
+    # Agent setup
     cuda = True
+    clip_param = 0.2
+    max_grad_norm = 0.5
+    ppo_update_iters = 5
+    batch_size = 8
+    gamma = 0.995
+    actor_lr = 3e-4
+    critic_lr = 3e-4
+    # Training setup
     steps_per_episode = 5000
     episode_count = 0
     episode_limit = 7500
     episodes_per_checkpoint = 250
+    # Environment setup
     window = 10
     on_tar_threshold = 0.1
     ds_sensors_weights = None
@@ -110,7 +120,8 @@ def run():
                                        ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size)
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
-    agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, use_cuda=cuda)
+    agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, clip_param, max_grad_norm, ppo_update_iters,
+                     batch_size, gamma, cuda, actor_lr, critic_lr)
 
     if load_checkpoint is not None:
         agent.load(os.path.join(parent_dir, experiment_name, "checkpoints", str(load_checkpoint)))  # NOQA
