@@ -319,7 +319,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         reward += weighted_dist_path_reward
 
         # Stop reward overrides other rewards if robot is within target threshold
-        if current_distance < self.on_target_threshold:
+        if weighted_reach_tar_reward != 0.0:
             reward = weighted_reach_tar_reward
         # Collision reward overrides all other rewards, because it means the robot has collided with an obstacle
         if weighted_collision_reward != 0.0:
