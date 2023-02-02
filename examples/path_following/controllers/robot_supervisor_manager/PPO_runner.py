@@ -53,10 +53,8 @@ def run():
 
     save_to_disk = True  # False to disable all saving
     parent_dir = "./experiments"
-    experiment_name = "window_1"
-    experiment_description = """
-    No desc
-    """
+    experiment_name = "window_1_baseline"
+    experiment_description = """Window 1, defaults baseline."""
 
     # Agent setup
     cuda = True
@@ -75,10 +73,10 @@ def run():
     # Training setup
     steps_per_episode = 5000
     episode_count = 0
-    episode_limit = 7500
+    episode_limit = 10000
     episodes_per_checkpoint = 250
     # Environment setup
-    window = 10
+    window = 1
     on_tar_threshold = 0.1
     ds_sensors_weights = None
     tar_dis_weight = 1.0
