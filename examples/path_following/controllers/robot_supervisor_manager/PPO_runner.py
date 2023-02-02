@@ -63,10 +63,15 @@ def run():
     clip_param = 0.2
     max_grad_norm = 0.5
     ppo_update_iters = 5
-    batch_size = 8
     gamma = 0.995
     actor_lr = 3e-4
     critic_lr = 3e-4
+    # Agent batch size
+    batch_size = 1000
+    # When True, train runs only when episode is done, on False it runs when it gets a full batch
+    train_on_done = False
+    # Meaningful only when training on done. When True, batch_size value is overriden to current episode steps
+    override_batch_size = True
     # Training setup
     steps_per_episode = 5000
     episode_count = 0
@@ -76,14 +81,17 @@ def run():
     window = 10
     on_tar_threshold = 0.1
     ds_sensors_weights = None
-    tar_dis_weight = 4.0
-    tar_ang_weight = 4.0
+    tar_dis_weight = 1.0
+    tar_ang_weight = 1.0
     path_dis_weight = 0.0
-    ds_weight = 2.0
+    ds_weight = 1.0
     tar_reach_weight = 1000.0
     col_weight = 1.0
+    # Map setup
     map_w, map_h = 7, 7
     cell_size = None
+
+    # Other
     solved = False  # Whether the solved requirement is met
     training_metrics = {"total_rewards": [], "rewards_breakdown": [],
                         "action_probs": [], "avg_action_probs": [],
@@ -169,13 +177,20 @@ def run():
             # Save the current state transition in agent's memory
             agent.store_transition(Transition(state, selected_action, action_prob, reward["total"], new_state))
 
+            if not train_on_done:
+                agent.train_step()
+
             episode_metrics["reward"] += reward["total"]  # Accumulate episode reward
             for key in episode_metrics["reward_sums"].keys():
                 episode_metrics["reward_sums"][key] += reward[key]  # Accumulate various rewards
             if done or step == env.steps_per_episode - 1:
                 # Save final distance achieved from final state
                 episode_metrics["final_distance"] = state[0]
-                agent.train_step(batch_size=step + 1)
+                if train_on_done:
+                    if override_batch_size:
+                        agent.train_step(batch_size=step + 1)
+                    else:
+                        agent.train_step()  # Use batch_size set in ctor
                 break
 
             state = new_state  # state for next step is current step's new_state
