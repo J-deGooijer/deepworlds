@@ -65,7 +65,7 @@ def run():
     actor_lr = 3e-4
     critic_lr = 3e-4
     # Agent batch size
-    batch_size = 1000
+    batch_size = 128
     # When True, train runs only when episode is done, on False it runs when it gets a full batch
     train_on_done = True
     # Meaningful only when training on done. When True, batch_size value is overriden to current episode steps
