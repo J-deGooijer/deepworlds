@@ -40,10 +40,12 @@ def print_episode_info(env, experiment_name, episode_count, average_episode_acti
         print(f"{key[0].upper() + key[1:]:<12}: {episode_metrics['reward_sums'][key]:.2f}")
     print(" ")
     print(f"All actions average probability : {average_episode_action_prob * 100:.2f} %")
-    actions = ["forward", "left", "right", "stop", "backward"]
+    actions = ["forward", "left", "right", "stop", "backward",
+               "forward-fast", "left-fast", "right-fast", "backwards-fast",
+               "forward-left-fast", "forward-right-fast", "backwards-left-fast", "backwards-right-fast"]
     for i in range(env.action_space.n):
         action = actions[i]
-        print(f"Average probability for {action:<8}: {mean(episode_metrics['action_probs'][str(i)]) * 100:.2f} %")
+        print(f"Average probability for {action:<22}: {mean(episode_metrics['action_probs'][str(i)]) * 100:.2f} %")
 
 
 def run():
@@ -76,7 +78,9 @@ def run():
     episode_limit = 10000
     episodes_per_checkpoint = 250
     # Environment setup
-    window = 1
+    verbose = False
+    action_space_expanded = False
+    window = 10
     on_tar_threshold = 0.1
     ds_sensors_weights = None
     tar_dis_weight = 1.0
@@ -123,7 +127,8 @@ def run():
     # Initialize supervisor object
     env = PathFollowingRobotSupervisor(experiment_description, steps_per_episode, window, on_tar_threshold,
                                        ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
-                                       ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size)
+                                       ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size,
+                                       verbose, action_space_expanded)
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, clip_param, max_grad_norm, ppo_update_iters,

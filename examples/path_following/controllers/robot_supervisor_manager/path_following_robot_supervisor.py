@@ -49,7 +49,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  target_distance_weight=1.0, tar_angle_weight=1.0,
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1000.0, collision_weight=1000.0,
-                 map_width=7, map_height=7, cell_size=None, verbose=False):
+                 map_width=7, map_height=7, cell_size=None, verbose=False, action_space_expanded=False):
         """
         TODO docstring
         """
@@ -84,7 +84,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.observation_space = Box(low=np.array(obs_low),
                                      high=np.array(obs_high),
                                      dtype=np.float64)
-        self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
+        if action_space_expanded:
+            self.action_space = Discrete(13)
+        else:
+            self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
 
         self.distance_sensors = []
         self.ds_max = []
@@ -440,6 +443,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             action = 3
         if key == ord("X"):
             action = 4
+        if key == Keyboard.CONTROL + ord("W"):
+            action = 5
+        if key == Keyboard.CONTROL + ord("A"):
+            action = 6
+        if key == Keyboard.CONTROL + ord("D"):
+            action = 7
+        if key == Keyboard.CONTROL + ord("X"):
+            action = 8
+        if key == ord("Q"):
+            action = 9
+        if key == ord("E"):
+            action = 10
+        if key == ord("Z"):
+            action = 11
+        if key == ord("C"):
+            action = 12
 
         if action == 0:  # Move forward
             gas = 1.0
@@ -456,6 +475,30 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         elif action == 4:  # Move backwards
             gas = -1.0
             wheel = 0.0
+        elif action == 5:  # Move forward fast
+            gas = 4.0
+            wheel = 0.0
+        elif action == 6:  # Move left fast
+            gas = 0.0
+            wheel = -4.0
+        elif action == 7:  # Move right fast
+            gas = 0.0
+            wheel = 4.0
+        elif action == 8:  # Move backwards fast
+            gas = -4.0
+            wheel = 0.0
+        elif action == 9:  # Move forward-left fast
+            gas = 4.0
+            wheel = -4.0
+        elif action == 10:  # Move forward-right fast
+            gas = 4.0
+            wheel = 4.0
+        elif action == 11:  # Move backwards-left fast
+            gas = -4.0
+            wheel = 4.0
+        elif action == 12:  # Move backwards-right fast
+            gas = -4.0
+            wheel = -4.0
 
         # Apply gas to both motor speeds, add turning rate to one, subtract from other
         motor_speeds = [0.0, 0.0]
