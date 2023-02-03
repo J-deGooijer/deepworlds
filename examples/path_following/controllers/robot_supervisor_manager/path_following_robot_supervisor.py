@@ -379,6 +379,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         while not randomization_successful:
             # Randomize robot and obstacle positions
             self.randomize_map()
+            self.simulationResetPhysics()
             # Set the target in a valid position and find a path to it
             # and repeat until a reachable position has been found for the target
             self.path_to_target = self.get_random_path()
@@ -542,7 +543,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         self.remove_objects()
         self.map.empty()
-        self.map.add_random(self.robot)  # Add robot in a random position
+        self.map.add_random(self.robot, 0.0399261)  # Add robot in a random position
         for node in random.sample(self.all_obstacles, self.number_of_obstacles):
             self.map.add_random(node)
             node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
@@ -654,11 +655,15 @@ class Grid:
     def size(self):
         return len(self.grid[0]), len(self.grid)
 
-    def add_cell(self, x, y, node):
+    def add_cell(self, x, y, node, z=None):
         if self.grid[y][x] is None and self.is_in_range(x, y):
             self.grid[y][x] = node
-            node.getField("translation").setSFVec3f(
-                [self.get_world_coordinates(x, y)[0], self.get_world_coordinates(x, y)[1], node.getPosition()[2]])
+            if z is None:
+                node.getField("translation").setSFVec3f(
+                    [self.get_world_coordinates(x, y)[0], self.get_world_coordinates(x, y)[1], node.getPosition()[2]])
+            else:
+                node.getField("translation").setSFVec3f(
+                    [self.get_world_coordinates(x, y)[0], self.get_world_coordinates(x, y)[1], z])
             return True
         return False
 
@@ -702,13 +707,13 @@ class Grid:
     def empty(self):
         self.grid = [[None for _ in range(len(self.grid[0]))] for _ in range(len(self.grid))]
 
-    def add_random(self, node):
+    def add_random(self, node, z=None):
         x = random.randint(0, len(self.grid[0]) - 1)
         y = random.randint(0, len(self.grid) - 1)
         if self.grid[y][x] is None:
-            return self.add_cell(x, y, node)
+            return self.add_cell(x, y, node, z=z)
         else:
-            self.add_random(node)
+            self.add_random(node, z=z)
 
     def add_near(self, x, y, node, min_distance=1, max_distance=1):
         # Make sure the randomly selected cell is not occupied
