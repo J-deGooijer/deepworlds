@@ -68,7 +68,9 @@ with open(results_path, read_flag) as f:
     # Plot each action average probability per episode
     # One line for each action per episode
     data = [[] for i in range(len(results["episodes_action_probs"][0].keys()))]
-    action_names = ["Forward", "Left", "Right", "Stop", "Backwards"]
+    actions = ["forward", "left", "right", "stop", "backward",
+               "forward-fast", "left-fast", "right-fast", "backwards-fast",
+               "forward-left-fast", "forward-right-fast", "backwards-left-fast", "backwards-right-fast"]
     for episode in range(len(results["episodes_action_probs"])):
         for action_key in results["episodes_action_probs"][0].keys():
             probs_list = results["episodes_action_probs"][episode][action_key]
@@ -76,12 +78,12 @@ with open(results_path, read_flag) as f:
                 data[int(action_key)].append(0.0)
             else:
                 data[int(action_key)].append(np.mean(probs_list))
-    multiple_plot(data, action_names,
+    multiple_plot(data, actions,
                   "Per action average probability per episode", "episodes", "average action probability")
 
-    save_names = [join(experiment_folder, f"{name.lower()}.png") for name in action_names]
+    save_names = [join(experiment_folder, f"{name.lower()}.png") for name in actions]
     name_ind = 0
-    for data_line, action_name in zip(data, action_names):
+    for data_line, action_name in zip(data, actions):
         data_line_smoothed = moving_avg(data_line, moving_avg_n)
         moving_avg_n = len(data_line) // 10
         multiple_plot([data_line, data_line_smoothed],
