@@ -68,10 +68,8 @@ def run():
     critic_lr = 3e-4
     # Agent batch size
     batch_size = 128
-    # When True, train runs only when episode is done, on False it runs when it gets a full batch
+    # When True, train runs only when episode is done, on False it runs when it gets a full batch as set above
     train_on_done = True
-    # Meaningful only when training on done. When True, batch_size value is overriden to current episode steps
-    override_batch_size = True
     # Training setup
     steps_per_episode = 5000
     episode_count = 0
@@ -190,10 +188,7 @@ def run():
                 # Save final distance achieved from final state
                 episode_metrics["final_distance"] = state[0]
                 if train_on_done:
-                    if override_batch_size:
-                        agent.train_step(batch_size=step + 1)
-                    else:
-                        agent.train_step()  # Use batch_size set in ctor
+                    agent.train_step(batch_size=step + 1)
                 break
 
             state = new_state  # state for next step is current step's new_state
