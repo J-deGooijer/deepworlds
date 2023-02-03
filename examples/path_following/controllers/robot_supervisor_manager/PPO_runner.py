@@ -189,6 +189,11 @@ def run():
                 episode_metrics["final_distance"] = state[0]
                 if train_on_done:
                     agent.train_step(batch_size=step + 1)
+                else:
+                    # When not training on done, train a final time for episode with whatever
+                    # transitions are left in the buffer
+                    if len(agent.buffer) != 0:
+                        agent.train_step(len(agent.buffer))
                 break
 
             state = new_state  # state for next step is current step's new_state
