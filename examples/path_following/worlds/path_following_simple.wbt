@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 DEF VIEWPOINT Viewpoint {
-  orientation -0.4539923794822916 0.4532195829395124 0.7671264100603898 1.8344933778858532
-  position 0.16604954054602752 -6.741455963512677 12.211310418925812
+  orientation -0.4475656338972604 0.44235788741695675 0.7771772660044491 1.831579911049773
+  position 0.5776720908717151 -5.373237949193598 9.054381713739641
   follow "robot"
 }
 TexturedBackground {
@@ -147,7 +147,7 @@ DEF ROBOT Robot {
           ]
           name "distance sensor(0)"
           lookupTable [
-            0.02 0 0
+            0.0775 0 0
             0.35 35 0
           ]
         }
@@ -156,7 +156,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 1.308996939
           name "distance sensor(1)"
           lookupTable [
-            0.02 0 0
+            0.05 0 0
             0.35 35 0
           ]
         }
@@ -165,7 +165,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 1.047197551
           name "distance sensor(2)"
           lookupTable [
-            0.02 0 0
+            0.025 0 0
             0.35 35 0
           ]
         }
@@ -174,7 +174,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 0.785398163
           name "distance sensor(3)"
           lookupTable [
-            0.02 0 0
+            0.018 0 0
             0.35 35 0
           ]
         }
@@ -183,7 +183,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 0.523598776
           name "distance sensor(4)"
           lookupTable [
-            0.02 0 0
+            0.015 0 0
             0.35 35 0
           ]
         }
@@ -192,7 +192,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 0.2617993877991494
           name "distance sensor(5)"
           lookupTable [
-            0.02 0 0
+            0.0138 0 0
             0.35 35 0
           ]
         }
@@ -200,7 +200,7 @@ DEF ROBOT Robot {
           translation 0.051 0 0
           name "distance sensor(6)"
           lookupTable [
-            0.02 0 0
+            0.0135 0 0
             0.35 35 0
           ]
         }
@@ -209,7 +209,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -0.261799
           name "distance sensor(7)"
           lookupTable [
-            0.02 0 0
+            0.0138 0 0
             0.35 35 0
           ]
         }
@@ -218,7 +218,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -0.523598776
           name "distance sensor(8)"
           lookupTable [
-            0.02 0 0
+            0.015 0 0
             0.35 35 0
           ]
         }
@@ -227,7 +227,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -0.785398163
           name "distance sensor(9)"
           lookupTable [
-            0.02 0 0
+            0.018 0 0
             0.35 35 0
           ]
         }
@@ -236,7 +236,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -1.047197551
           name "distance sensor(10)"
           lookupTable [
-            0.02 0 0
+            0.025 0 0
             0.35 35 0
           ]
         }
@@ -245,7 +245,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -1.309
           name "distance sensor(11)"
           lookupTable [
-            0.02 0 0
+            0.05 0 0
             0.35 35 0
           ]
         }
@@ -254,7 +254,7 @@ DEF ROBOT Robot {
           rotation 0 0 1 -1.570796327
           name "distance sensor(12)"
           lookupTable [
-            0.02 0 0
+            0.0775 0 0
             0.35 35 0
           ]
         }
