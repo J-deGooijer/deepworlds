@@ -274,8 +274,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         dist_sensors_reward = 0
         if sum(current_dist_sensors) < sum(self.ds_max):
             min_ds = np.argmin(current_dist_sensors)
+            # Reward is increase or decrease
             dist_sensors_reward = normalize_to_range(current_dist_sensors[min_ds] - self.previous_dist_sensors[min_ds],
                                                      -0.1331, 0.1331, -1.0, 1.0, clip=True)
+            # If change is small, probably is stopped, penalize
+            if abs(current_dist_sensors[min_ds] - self.previous_dist_sensors[min_ds]) < 0.001:
+                dist_sensors_reward = -1.0
+            dist_sensors_reward = round(dist_sensors_reward, 4)
 
         # Reward robot for closing the distance to the predefined path
         if (self.previous_dist_path - current_dist_path) > 0.00001:
@@ -434,6 +439,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        action=3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
