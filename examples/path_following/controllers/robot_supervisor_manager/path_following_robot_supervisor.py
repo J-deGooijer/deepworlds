@@ -49,7 +49,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  target_distance_weight=1.0, tar_angle_weight=1.0,
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1000.0, collision_weight=1000.0,
-                 map_width=7, map_height=7, cell_size=None, verbose=False, action_space_expanded=False):
+                 map_width=7, map_height=7, cell_size=None, verbose=False, action_space_expanded=False,
+                 reset_on_collision=True):
         """
         TODO docstring
         """
@@ -139,6 +140,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         self.trigger_done = False  # Used to trigger the done condition
         self.just_reset = True
+        self.reset_on_collision = reset_on_collision
 
         # Map
         self.map_width, self.map_height = map_width, map_height
@@ -302,7 +304,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
-            self.trigger_done = True
+            if self.reset_on_collision:
+                self.trigger_done = True
             collision_reward = -1.0
 
         ################################################################################################################

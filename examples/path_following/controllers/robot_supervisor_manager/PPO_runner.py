@@ -13,6 +13,7 @@ import torch
 total_timesteps = 1_000_000
 maximum_episode_steps = 10_000
 experiment_description = """Window 10, sb3"""
+reset_on_collision = True
 verbose = False
 action_space_expanded = False
 window = 10
@@ -30,7 +31,7 @@ cell_size = None
 env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, 0, window, on_tar_threshold,
                                              ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
                                              ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size,
-                                             verbose, action_space_expanded), maximum_episode_steps)
+                                             verbose, action_space_expanded, reset_on_collision), maximum_episode_steps)
 env.set_difficulty({"number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 7})
 
 policy_kwargs = dict(activation_fn=torch.nn.ReLU,
