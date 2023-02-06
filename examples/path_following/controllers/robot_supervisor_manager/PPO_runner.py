@@ -6,10 +6,12 @@
 
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
 from stable_baselines3 import PPO
+from gym.wrappers import TimeLimit
 import torch
 
 # Environment setup
 total_timesteps = 1_000_000
+maximum_episode_steps = 10_000
 experiment_description = """Window 10, sb3"""
 verbose = False
 action_space_expanded = False
@@ -25,10 +27,10 @@ col_weight = 1000.0
 # Map setup
 map_w, map_h = 7, 7
 cell_size = None
-env = PathFollowingRobotSupervisor(experiment_description, 0, window, on_tar_threshold,
-                                   ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
-                                   ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size,
-                                   verbose, action_space_expanded)
+env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, 0, window, on_tar_threshold,
+                                             ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
+                                             ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size,
+                                             verbose, action_space_expanded), maximum_episode_steps)
 env.set_difficulty({"number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 7})
 
 policy_kwargs = dict(activation_fn=torch.nn.ReLU,
@@ -48,7 +50,6 @@ while True:
     if done:
         env.reset()
     # env.render()
-
 
 # def is_solved(reward_list):
 #     """
