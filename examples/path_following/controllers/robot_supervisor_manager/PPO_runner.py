@@ -34,7 +34,7 @@ env.set_difficulty({"number_of_obstacles": 25, "min_target_dist": 5, "max_target
 policy_kwargs = dict(activation_fn=torch.nn.ReLU,
                      net_arch=dict(pi=[128, 64], vf=[256, 128]))
 model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
-model.learn(total_timesteps=total_timesteps, progress_bar=True)
+model.learn(total_timesteps=total_timesteps)
 model.save("mlp_test")
 
 # del model  # remove to demonstrate saving and loading
