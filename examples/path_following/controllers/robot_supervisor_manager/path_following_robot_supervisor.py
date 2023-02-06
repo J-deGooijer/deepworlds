@@ -271,11 +271,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.trigger_done = True  # Terminate episode
 
         # Reward for avoiding obstacles
-        dist_sensors_rewards = []
-        for i in range(len(self.distance_sensors)):
-            dist_sensors_rewards.append(normalize_to_range(current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0)
-                                        * self.dist_sensors_weights[i])
-        dist_sensors_reward = sum(dist_sensors_rewards)
+        dist_sensors_reward = 0
+        if sum(current_dist_sensors) < sum(self.ds_max):
+            min_ds = np.argmin(current_dist_sensors)
+            dist_sensors_reward = normalize_to_range(current_dist_sensors[min_ds] - self.previous_dist_sensors[min_ds],
+                                                     -0.1331, 0.1331, -1.0, 1.0, clip=True)
 
         # Reward robot for closing the distance to the predefined path
         if (self.previous_dist_path - current_dist_path) > 0.00001:
