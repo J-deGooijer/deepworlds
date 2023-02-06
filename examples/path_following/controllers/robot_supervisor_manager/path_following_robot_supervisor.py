@@ -297,6 +297,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
+            self.trigger_done = True
             collision_reward = -1.0
 
         ################################################################################################################
@@ -343,11 +344,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         if self.just_reset:
             self.just_reset = False
-            return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
+            return 0.0
+            # return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
         else:
-            return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
-                    "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
-                    "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
+            return reward
+            # return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
+            #         "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
+            #         "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
 
     def is_done(self):
         """
@@ -367,7 +370,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         self.simulationResetPhysics()
         super(Supervisor, self).step(int(self.getBasicTimeStep()))
-        starting_obs = self.get_default_observation()
+        self.obs_list = self.get_default_observation()
         # Reset path
         self.path_to_target = None
 
@@ -393,7 +396,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.viewpoint.getField("position").setSFVec3f(self.viewpoint_position)
         self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
 
-        return starting_obs
+        return self.obs_list
 
     def get_default_observation(self):
         """
