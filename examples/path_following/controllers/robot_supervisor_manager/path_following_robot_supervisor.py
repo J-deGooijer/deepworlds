@@ -50,12 +50,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1000.0, collision_weight=1000.0,
                  map_width=7, map_height=7, cell_size=None, verbose=False, action_space_expanded=False,
-                 reset_on_collision=True):
+                 reset_on_collision=True, manual_control=False):
         """
         TODO docstring
         """
         super().__init__()
         self.verbose = verbose
+        self.manual_control = manual_control
 
         self.viewpoint = self.getFromDef("VIEWPOINT")
         self.viewpoint_position = self.viewpoint.getField("position").getSFVec3f()
@@ -330,9 +331,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Add collision penalty
         reward += weighted_collision_reward
 
-        # Stop reward overrides other rewards if robot is within target threshold
-        if weighted_reach_tar_reward != 0.0:
-            reward = weighted_reach_tar_reward
+        # Add reach target reward
+        reward += weighted_reach_tar_reward
 
         if self.verbose:
             print(f"tar dist : {weighted_dist_tar_reward}")
@@ -352,13 +352,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         if self.just_reset:
             self.just_reset = False
-            return 0.0
-            # return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
+            return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
         else:
-            return reward
-            # return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
-            #         "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
-            #         "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
+            return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
+                    "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
+                    "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
 
     def is_done(self):
         """
@@ -442,6 +440,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        if self.manual_control:
+            action = 3
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
