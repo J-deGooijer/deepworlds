@@ -64,8 +64,8 @@ class PPOAgent:
             self.critic_net.cuda()
 
         # Create the optimizers
-        self.actor_optimizer = optim.Adam(self.actor_net.parameters(), actor_lr)
-        self.critic_net_optimizer = optim.Adam(self.critic_net.parameters(), critic_lr)
+        self.actor_optimizer = optim.Adam(self.actor_net.parameters(), actor_lr, eps=1e-5)
+        self.critic_net_optimizer = optim.Adam(self.critic_net.parameters(), critic_lr, eps=1e-5)
 
         # Training stats
         self.buffer = []
