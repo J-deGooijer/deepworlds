@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
-from torch import from_numpy, no_grad, save, load, tensor, clamp
+from torch import from_numpy, no_grad, save, load, tensor, clamp, where
 from torch import float as torch_float
 from torch import long as torch_long
 from torch import min as torch_min
@@ -70,7 +70,7 @@ class PPOAgent:
         # Training stats
         self.buffer = []
 
-    def work(self, agent_input, type_="selectAction"):
+    def work(self, agent_input, type_="selectAction", mask=None):
         """
         Forward pass of the PPO agent. Depending on the type_ argument, it either explores by sampling its actor's
         softmax output, or eliminates exploring by selecting the action with the maximum probability (argmax).
@@ -79,14 +79,22 @@ class PPOAgent:
         :type agent_input: vector
         :param type_: "selectAction" or "selectActionMax", defaults to "selectAction"
         :type type_: str, optional
+        :param mask: A list of bools in the shape of the action space, disabling an action entirely
+        :type mask: list of bools
         """
         agent_input = from_numpy(np.array(agent_input)).float().unsqueeze(0)  # Add batch dimension with unsqueeze
 
-        if self.use_cuda:
-            agent_input = agent_input.cuda()
+        mask = tensor(mask) if mask is not None else None  # Initialize mask tensor if provided with a list
+        mask = mask.cuda() if self.use_cuda and mask is not None else mask  # Move mask to cuda if necessary
+
+        agent_input = agent_input.cuda() if self.use_cuda else agent_input  # Move input to cuda if necessary
 
         with no_grad():
             action_prob = self.actor_net(agent_input)
+
+        if mask is not None:
+            # Apply mask if provided with one. Zero out masked action probability
+            action_prob = where(mask, action_prob, tensor(0.0).cuda() if self.use_cuda else tensor(0.0))
 
         if type_ == "selectAction":
             c = Categorical(action_prob)
