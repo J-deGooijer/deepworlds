@@ -12,7 +12,7 @@ WorldInfo {
 }
 DEF VIEWPOINT Viewpoint {
   orientation -0.4475656338972604 0.44235788741695675 0.7771772660044491 1.831579911049773
-  position 0.5776720908717151 -5.373237949193598 9.054381713739641
+  position 0.12641135843163612 -4.966075063812037 8.563000735266906
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -1.8387238365053818e-29 0.06 1.3969099999999967e-17
-        rotation 1 4.476890375219236e-09 -4.476895478010355e-09 1.570799999999432
+        translation -1.834332716232179e-29 0.06 1.396909999999982e-17
+        rotation 1 4.476891081759651e-09 -4.476896263055249e-09 1.5707999999993847
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -2.9728654621561373e-28 -0.06 4.5013099999999913e-17
-        rotation 1 -1.218206830321662e-09 1.2181984695946749e-09 1.570799999999444
+        translation -2.971232273563297e-28 -0.06 4.501310000000013e-17
+        rotation 1 -1.2182123256351996e-09 1.218194505118523e-09 1.5707999999994031
         children [
           USE WHEEL
         ]
@@ -261,9 +261,9 @@ DEF ROBOT Robot {
       ]
     }
     TouchSensor {
-      translation 0.005 0 0
+      translation 0.0515 0 0
       boundingObject Box {
-        size 0.115 0.15 0.05
+        size 0.02 0.15 0.02
       }
     }
   ]
