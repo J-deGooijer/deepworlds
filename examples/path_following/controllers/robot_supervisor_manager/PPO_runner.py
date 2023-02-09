@@ -40,9 +40,7 @@ def print_episode_info(env, experiment_name, episode_count, average_episode_acti
         print(f"{key[0].upper() + key[1:]:<12}: {episode_metrics['reward_sums'][key]:.2f}")
     print(" ")
     print(f"All actions average probability : {average_episode_action_prob * 100:.2f} %")
-    actions = ["forward", "left", "right", "stop", "backward",
-               "forward-fast", "left-fast", "right-fast", "backwards-fast",
-               "forward-left-fast", "forward-right-fast", "backwards-left-fast", "backwards-right-fast"]
+    actions = ["Forward", "Left", "Right", "Stop", "Backward"]
     for i in range(env.action_space.n):
         action = actions[i]
         print(f"Average probability for {action:<22}: {mean(episode_metrics['action_probs'][str(i)]) * 100:.2f} %")
@@ -55,6 +53,7 @@ def run():
 
     manual_control = False
     save_to_disk = True  # False to disable all saving
+    verbose = False
     parent_dir = "./experiments"
     experiment_name = "experiment"
     experiment_description = """Experiment description"""
@@ -71,24 +70,22 @@ def run():
     batch_size = 64  # Batch size for training when not training on done
     train_every_steps = 2000  # How many steps per training when not training on done
     # When True, train runs only when episode is done, on False it runs when it gets a full batch as set above
-    train_on_done = True
+    train_on_done = False
     # Training setup
-    steps_per_episode = 10000
+    steps_per_episode = 25000
     episode_count = 0
     episode_limit = 10000
-    episodes_per_checkpoint = 250
+    episodes_per_checkpoint = 25
     # Environment setup
-    verbose = False
+    use_random_map = False  # Whether to use random map or box
     reset_on_collision = True
-    action_space_expanded = False
-    window = 10
+    window = 20
     on_tar_threshold = 0.1
-    ds_sensors_weights = None
     tar_dis_weight = 1.0
     tar_ang_weight = 1.0
     path_dis_weight = 0.0
-    ds_weight = 5.0
-    tar_reach_weight = 1000.0
+    ds_weight = 1.0
+    tar_reach_weight = 10.0
     col_weight = 10.0
     # Map setup
     map_w, map_h = 7, 7
@@ -101,35 +98,54 @@ def run():
                         "final_distances": []
                         }
 
-    difficulty = {
-        -1: {"number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 1},
-        -1: {"number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 2},
-        -1: {"number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 3},
-        0: {"number_of_obstacles": 25, "min_target_dist": 2, "max_target_dist": 3},
-        75: {"number_of_obstacles": 25, "min_target_dist": 2, "max_target_dist": 4},
-        150: {"number_of_obstacles": 25, "min_target_dist": 3, "max_target_dist": 4},
-        200: {"number_of_obstacles": 25, "min_target_dist": 3, "max_target_dist": 5},
-        300: {"number_of_obstacles": 25, "min_target_dist": 4, "max_target_dist": 5},
-        500: {"number_of_obstacles": 25, "min_target_dist": 4, "max_target_dist": 6},
-        1000: {"number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 6},
-        1500: {"number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 7},
-        2500: {"number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 7},
-        3000: {"number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 8},
-        3250: {"number_of_obstacles": 25, "min_target_dist": 7, "max_target_dist": 8},
-        3500: {"number_of_obstacles": 25, "min_target_dist": 7, "max_target_dist": 9},
-        3750: {"number_of_obstacles": 25, "min_target_dist": 8, "max_target_dist": 9},
-        4000: {"number_of_obstacles": 25, "min_target_dist": 8, "max_target_dist": 10},
-        4250: {"number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 10},
-        4500: {"number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 11},
-        4750: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 11},
-        5000: {"number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
+    difficulty_random = {
+        -1: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 1},
+        -1: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 2},
+        -1: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 1, "max_target_dist": 3},
+        0: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 2, "max_target_dist": 3},
+        75: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 2, "max_target_dist": 4},
+        150: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 3, "max_target_dist": 4},
+        200: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 3, "max_target_dist": 5},
+        300: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 4, "max_target_dist": 5},
+        500: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 4, "max_target_dist": 6},
+        1000: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 6},
+        1500: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 5, "max_target_dist": 7},
+        2500: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 7},
+        3000: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 8},
+        3250: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 7, "max_target_dist": 8},
+        3500: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 7, "max_target_dist": 9},
+        3750: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 8, "max_target_dist": 9},
+        4000: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 8, "max_target_dist": 10},
+        4250: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 10},
+        4500: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 9, "max_target_dist": 11},
+        4750: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 11},
+        5000: {"type": "random", "number_of_obstacles": 25, "min_target_dist": 10, "max_target_dist": 12},
     }
 
+    difficulty_box = {
+        0: {"type": "box", "number_of_obstacles": 4, "min_target_dist": 3, "max_target_dist": 3},
+        50: {"type": "box", "number_of_obstacles": 5, "min_target_dist": 3, "max_target_dist": 4},
+        100: {"type": "box", "number_of_obstacles": 6, "min_target_dist": 4, "max_target_dist": 4},
+        150: {"type": "box", "number_of_obstacles": 7, "min_target_dist": 4, "max_target_dist": 5},
+        200: {"type": "box", "number_of_obstacles": 8, "min_target_dist": 5, "max_target_dist": 5},
+        250: {"type": "box", "number_of_obstacles": 9, "min_target_dist": 5, "max_target_dist": 6},
+        350: {"type": "box", "number_of_obstacles": 10, "min_target_dist": 6, "max_target_dist": 7},
+    }
+
+    if use_random_map:
+        difficulty = difficulty_random
+    else:
+        difficulty = difficulty_box
+
     # Initialize supervisor object
-    env = PathFollowingRobotSupervisor(experiment_description, steps_per_episode, window, on_tar_threshold,
-                                       ds_sensors_weights, tar_dis_weight, tar_ang_weight, path_dis_weight,
-                                       ds_weight, tar_reach_weight, col_weight, map_w, map_h, cell_size,
-                                       verbose, action_space_expanded, reset_on_collision, manual_control)
+    env = PathFollowingRobotSupervisor(experiment_description, steps_per_episode=steps_per_episode, obs_window_size=window,
+                                       reset_on_collision=reset_on_collision, manual_control=manual_control, verbose=verbose,
+                                       on_target_threshold=on_tar_threshold,
+                                       target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
+                                       dist_path_weight=path_dis_weight, dist_sensors_weight=ds_weight,
+                                       tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
+                                       map_width=map_w, map_height=map_h, cell_size=cell_size)
+
     # The agent used here is trained with the PPO algorithm (https://arxiv.org/abs/1707.06347).
     # We pass the number of inputs and the number of outputs, taken from the gym spaces
     agent = PPOAgent(env.observation_space.shape[0], env.action_space.n, clip_param, max_grad_norm, ppo_update_iters,
@@ -170,7 +186,7 @@ def run():
         # Episode loop
         for step in range(env.steps_per_episode):
             # In training mode the agent samples from the probability distribution, naturally implementing exploration
-            selected_action, action_prob = agent.work(state, type_="selectAction")
+            selected_action, action_prob = agent.work(state, type_="selectAction", mask=env.get_action_mask())
             # Save the current selected_action's probability
             episode_metrics["action_probs"][str(selected_action)].append(action_prob)
 
