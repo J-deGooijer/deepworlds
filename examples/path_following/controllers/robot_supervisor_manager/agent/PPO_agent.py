@@ -97,7 +97,12 @@ class PPOAgent:
             action_prob = where(mask, action_prob, tensor(0.0).cuda() if self.use_cuda else tensor(0.0))
 
         if type_ == "selectAction":
-            c = Categorical(action_prob)
+            try:
+                c = Categorical(action_prob)
+            except ValueError:
+                print("Value Error, removing mask.")
+                print(f"action_prob: {action_prob}")
+                c = Categorical(self.actor_net(agent_input))
             action = c.sample()
             return action.item(), action_prob[:, action.item()].item()
         elif type_ == "selectActionMax":
@@ -208,13 +213,15 @@ class PPOAgent:
 class Actor(nn.Module):
     def __init__(self, num_of_inputs, num_of_outputs):
         super(Actor, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.action_head = nn.Linear(64, num_of_outputs)
+        self.fc1 = nn.Linear(num_of_inputs, 768)
+        self.fc2 = nn.Linear(768, 512)
+        self.fc3 = nn.Linear(512, 128)
+        self.action_head = nn.Linear(128, num_of_outputs)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         action_prob = F.softmax(self.action_head(x), dim=1)
         return action_prob
 
@@ -224,6 +231,8 @@ class Actor(nn.Module):
         layer_sizes.append(list(x.size())[1])
         x = F.relu(self.fc2(x))
         layer_sizes.append(list(x.size())[1])
+        x = F.relu(self.fc3(x))
+        layer_sizes.append(list(x.size())[1])
         action_prob = F.softmax(self.action_head(x), dim=1)
         layer_sizes.append(list(action_prob.size())[1])
         return layer_sizes
@@ -232,13 +241,15 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, num_of_inputs):
         super(Critic, self).__init__()
-        self.fc1 = nn.Linear(num_of_inputs, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.state_value = nn.Linear(128, 1)
+        self.fc1 = nn.Linear(num_of_inputs, 1024)
+        self.fc2 = nn.Linear(1024, 768)
+        self.fc3 = nn.Linear(768, 256)
+        self.state_value = nn.Linear(256, 1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
         value = self.state_value(x)
         return value
 
@@ -247,6 +258,8 @@ class Critic(nn.Module):
         x = F.relu(self.fc1(x))
         layer_sizes.append(list(x.size())[1])
         x = F.relu(self.fc2(x))
+        layer_sizes.append(list(x.size())[1])
+        x = F.relu(self.fc3(x))
         layer_sizes.append(list(x.size())[1])
         value = self.state_value(x)
         layer_sizes.append(list(value.size())[1])
