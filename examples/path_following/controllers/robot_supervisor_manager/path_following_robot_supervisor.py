@@ -44,37 +44,42 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, description, steps_per_episode=10000, obs_window_size=1,
+                 reset_on_collision=True, manual_control=False, verbose=False,
                  on_target_threshold=0.1,
-                 dist_sensors_weights=None,
                  target_distance_weight=1.0, tar_angle_weight=1.0,
                  dist_path_weight=0.0, dist_sensors_weight=1.0,
-                 tar_reach_weight=1000.0, collision_weight=1000.0,
-                 map_width=7, map_height=7, cell_size=None, verbose=False, action_space_expanded=False,
-                 reset_on_collision=True, manual_control=False):
+                 tar_reach_weight=1.0, collision_weight=1.0,
+                 map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
         """
         super().__init__()
+        self.experiment_desc = description
         self.verbose = verbose
         self.manual_control = manual_control
 
+        # Viewpoint stuff used to reset camera position
         self.viewpoint = self.getFromDef("VIEWPOINT")
         self.viewpoint_position = self.viewpoint.getField("position").getSFVec3f()
         self.viewpoint_orientation = self.viewpoint.getField("orientation").getSFRotation()
 
-        self.experiment_desc = description
+        # Keyboard control
+        self.keyboard = Keyboard()
+        self.keyboard.enable(self.timestep)
+
         # Set up various robot components
         self.robot = self.getSelf()
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
 
-        # Set up gym spaces
+        # Set up gym observation and action spaces
         self.obs_window_size = obs_window_size
         self.obs_list = []
         # Distance to target, angle to target
-        single_obs_low = [0.0, -1.0]
+        # distance change, angle change, left motor speed, right motor speed
+        single_obs_low = [0.0, -1.0, -1.0, -1.0]  # , -1.0, -1.0, -1.0, -1.0]
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
-        single_obs_high = [1.0, 1.0]
+        single_obs_high = [1.0, 1.0, 1.0, 1.0]  # , 1.0, 1.0, 1.0, 1.0]
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
         self.single_obs_size = len(single_obs_low)
         obs_low = []
@@ -83,14 +88,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             obs_low.extend(single_obs_low)
             obs_high.extend(single_obs_high)
             self.obs_list.extend([0.0 for _ in range(self.single_obs_size)])
+        self.observation_counter_limit = int(np.ceil(1000 / self.timestep))
+        self.observation_counter = self.observation_counter_limit
         self.observation_space = Box(low=np.array(obs_low),
                                      high=np.array(obs_high),
                                      dtype=np.float64)
-        if action_space_expanded:
-            self.action_space = Discrete(13)
-        else:
-            self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
+        self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
+        self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
 
+        # Dictionary with distance sensor values as key and masked action as value
+        self.action_masks = {}
+
+        # Set up sensors
         self.distance_sensors = []
         self.ds_max = []
         # Loop through the ds_group node to get max sensor values and initialize the devices
@@ -105,45 +114,45 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     ds_node = ds_group.getMFNode(i)
                     self.ds_max.append(ds_node.getField("lookupTable").getMFVec3f(-1)[1])
 
-        # The weights can change how critical each sensor is for the final distance sensor reward
-        if dist_sensors_weights is None:
-            self.dist_sensors_weights = [1.0 for _ in range(self.number_of_distance_sensors)]
-        # Normalize weights to add up to 1
-        self.dist_sensors_weights = np.array(self.dist_sensors_weights) / np.sum(self.dist_sensors_weights)
-
-        # Touch sensor is used to terminate episode when the robot collides with an obstacle
+        # Touch sensor is used to determine when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
         self.touch_sensor.enable(self.timestep)  # NOQA
 
         # Set up motors
         self.left_motor = self.getDevice("left_wheel")
         self.right_motor = self.getDevice("right_wheel")
-        self.set_velocity(0.0, 0.0)
+        self.motor_speeds = [0.0, 0.0]
+        self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
 
         # Grab target node
         self.target = self.getFromDef("TARGET")
 
         # Set up misc
         self.steps_per_episode = steps_per_episode
-
-        # Target-related stuff
-        self.target_position = [0.0, 0.0]
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
-        self.previous_distance = 0.0
-        self.previous_angle = 0.0
-        self.previous_dist_path = 0.0
-        self.previous_angle_path = 0.0
+        # Various metrics, for the current step and the previous step
+        self.current_tar_d = 0.0
+        self.previous_tar_d = 0.0
+        self.current_tar_a = 0.0
+        self.previous_tar_a = 0.0
+        self.current_path_d = 0.0
+        self.previous_path_d = 0.0
+        self.current_path_a = 0.0
+        self.previous_path_a = 0.0
+        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.previous_action = None
 
+        # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
                                    "tar_reach": tar_reach_weight, "collision": collision_weight}
 
+        self.reset_on_collision = reset_on_collision  # Whether to reset on collision
         self.trigger_done = False  # Used to trigger the done condition
-        self.just_reset = True
-        self.reset_on_collision = reset_on_collision
+        self.just_reset = True  # Whether the episode was just reset
 
-        # Map
+        # Map stuff
         self.map_width, self.map_height = map_width, map_height
         if cell_size is None:
             self.cell_size = [0.5, 0.5]
@@ -157,7 +166,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                                                                       self.map_height - 1)[1]  # NOQA
         self.max_target_distance = np.sqrt(dx * dx + dy * dy)
 
-        # Obstacle references
+        # Obstacle references and starting positions used to reset them
         self.all_obstacles = []
         self.all_obstacles_starting_positions = []
         for childNodeIndex in range(self.getFromDef("OBSTACLES").getField("children").getCount()):
@@ -165,7 +174,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.all_obstacles.append(child)
             self.all_obstacles_starting_positions.append(child.getField("translation").getSFVec3f())
 
-        # Path node references
+        # Path node references and starting positions used to reset them
         self.all_path_nodes = []
         self.all_path_nodes_starting_positions = []
         for childNodeIndex in range(self.getFromDef("PATH").getField("children").getCount()):
@@ -173,7 +182,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.all_path_nodes.append(child)
             self.all_path_nodes_starting_positions.append(child.getField("translation").getSFVec3f())
 
-        self.number_of_obstacles = 0  # The number of obstacles to use, start with 0
+        self.current_difficulty = {}
+        self.number_of_obstacles = 0  # The number of obstacles to use, set from set_difficulty method
         if self.number_of_obstacles > len(self.all_obstacles):
             warn(f"\n \nNumber of obstacles set is greater than the number of obstacles that exist in the "
                  f"world ({self.number_of_obstacles} > {len(self.all_obstacles)}).\n"
@@ -181,18 +191,51 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.number_of_obstacles = len(self.all_obstacles)
 
         # Path to target stuff
-        self.path_to_target = []
+        self.path_to_target = []  # The map cells of the path
+        # The min and max (manhattan) distances of the target length allowed, set from set_difficulty method
         self.min_target_dist = 1
-        self.max_target_dist = 1  # The maximum (manhattan) distance of the target length allowed, starts at 1
-
-        self.keyboard = Keyboard()
-        self.keyboard.enable(self.timestep)
+        self.max_target_dist = 1
 
     def set_difficulty(self, difficulty_dict):
+        self.current_difficulty = difficulty_dict
         self.number_of_obstacles = difficulty_dict["number_of_obstacles"]
         self.min_target_dist = difficulty_dict["min_target_dist"]
         self.max_target_dist = difficulty_dict["max_target_dist"]
         print("Changed difficulty to:", difficulty_dict)
+
+    def get_action_mask(self):
+        mask = [True for _ in range(self.action_space.n)]
+        if sum(self.current_dist_sensors) < sum(self.ds_max):
+            # Unmask backward action if obstacles are detected
+            mask[4] = True
+        else:
+            # Mask backward action if no obstacles are detected
+            mask[4] = False
+
+        # Mask any action that led to a collision by looking in the dynamically updated action_masks
+        if self.get_ds_values_key() in self.action_masks.keys():
+            mask[self.action_masks[self.get_ds_values_key()]] = False
+            print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
+            # Unmask backward action
+            mask[4] = True
+        if self.current_dist_sensors[0] < 2.92:
+            # Mask turn left action when we get a minimum value on the left-most sensor
+            mask[1] = False
+            # Unmask backward action
+            mask[4] = True
+        if self.current_dist_sensors[-1] < 2.92:
+            # Mask turn right action when we get a minimum value on the right-most sensor
+            mask[2] = False
+            # Unmask backward action
+            mask[4] = True
+        for i in range(1, len(self.current_dist_sensors) - 1):
+            if self.current_dist_sensors[i] < 3.73:
+                # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
+                mask[0] = False
+                # Unmask backward action
+                mask[4] = True
+                break
+        return mask
 
     def get_observations(self):
         """
@@ -208,94 +251,63 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Observation vector
         :rtype: list
         """
-        # Target distance
-        tar_d = get_distance_from_target(self.robot, self.target)
-        tar_d = normalize_to_range(tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True)
-        # Angle between robot facing and target
-        tar_a = get_angle_from_target(self.robot, self.target)
-        tar_a = normalize_to_range(tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True)
         # Add distance, angle
-        obs = [tar_d, tar_a]  # NOQA
+        obs = [round(normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True), 2),
+               round(normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 2),
+               round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
+                                        clip=True), 2),
+               round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
+                                        clip=True), 2)]
 
         # Add distance sensor values
         ds_values = []
         for i in range(len(self.distance_sensors)):
-            ds = self.distance_sensors[i]
-            ds_values.append(normalize_to_range(ds.getValue(), 0, self.ds_max[i], 1.0, 0.0))  # NOQA
+            ds_values.append(round(normalize_to_range(self.current_dist_sensors[i], 0, self.ds_max[i], 1.0, 0.0), 2))
         obs.extend(ds_values)
 
-        self.obs_list = self.obs_list[self.single_obs_size:]  # Drop oldest
-        self.obs_list.extend(obs)  # Add newest at the end
+        if self.observation_counter >= self.observation_counter_limit:
+            self.obs_list = self.obs_list[self.single_obs_size:]  # Drop oldest
+            self.obs_list.extend(obs)  # Add newest at the end
+            self.observation_counter = 0
+        else:
+            self.observation_counter += 1
         return self.obs_list
 
     def get_reward(self, action):
-        ################################################################################################################
-        # Get current values
-
-        # Get distance and angle to target
-        current_distance = get_distance_from_target(self.robot, self.target)
-        current_angle = get_angle_from_target(self.robot, self.target, is_abs=True)  # NOQA
-
-        # Get minimum distance to path
-        current_dist_path, current_path_closest_point = self.find_dist_to_path()
-        current_angle_path = get_angle_from_target(self.robot, current_path_closest_point,
-                                                   node_mode=False, is_abs=True)
-
-        # Get all distance sensor values
-        current_dist_sensors = []  # Values are in range [0, self.ds_max]
-        for ds in self.distance_sensors:
-            current_dist_sensors.append(ds.getValue())  # NOQA
-
-        ################################################################################################################
-        # Reward components
-
         # Reward for decreasing distance to the target
-        # Distance to target reward scales between -1.5 and 0.5, based on how much it increases or decreases
-        # Normalization is non-symmetric around 0.0, meaning that when the distance is not changing,
-        # i.e. the robot isn't moving the reward is negative.
-        # This is intentional to force the robot to move, in addition to moving towards the target.
-        dist_tar_reward = round(normalize_to_range(self.previous_distance - current_distance,
-                                                   -0.0013, 0.0013, -1.5, 0.5), 2)
+        dist_tar_reward = round(normalize_to_range(self.previous_tar_d - self.current_tar_d,
+                                                   -0.0013, 0.0013, -1.5, 1.0), 2)
 
         # Reward for decreasing angle to the target
-        # Angle to target reward is 1.0 for decreasing angle, and -1.5 for increasing angle
-        # Increasing angle reward absolute value is larger than decreasing one, so they don't cancel out when the robot
-        # is constantly turning in one direction.
         ang_tar_reward = 0.0
-        if (self.previous_angle - current_angle) > 0.001:
+        if (abs(self.previous_tar_a) - abs(self.current_tar_a)) > 0.001:
             ang_tar_reward = 1.0
-        elif (self.previous_angle - current_angle) < -0.001:
+        elif (abs(self.previous_tar_a) - abs(self.current_tar_a)) < -0.001:
             ang_tar_reward = -1.5
 
         # Reward for reaching the target
         reach_tar_reward = 0.0
-        if current_distance < self.on_target_threshold:
+        if self.current_tar_d < self.on_target_threshold:
             reach_tar_reward = 1.0
             self.trigger_done = True  # Terminate episode
 
         # Reward for avoiding obstacles
-        dist_sensors_reward = 0
-        if sum(current_dist_sensors) < sum(self.ds_max):
-            min_ds = np.argmin(current_dist_sensors)
-            # Reward is increase or decrease
-            dist_sensors_reward = normalize_to_range(current_dist_sensors[min_ds] - self.previous_dist_sensors[min_ds],
-                                                     -0.1331, 0.1331, -1.0, 1.0, clip=True)
-            # If change is small, probably is stopped, penalize
-            if abs(current_dist_sensors[min_ds] - self.previous_dist_sensors[min_ds]) < 0.001:
-                dist_sensors_reward = -1.0
-            dist_sensors_reward = round(dist_sensors_reward, 4)
+        dist_sensors_rewards = []
+        for i in range(len(self.distance_sensors)):
+            dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0))
+        dist_sensors_reward = np.mean(dist_sensors_rewards)
 
         # Reward robot for closing the distance to the predefined path
-        if (self.previous_dist_path - current_dist_path) > 0.00001:
+        if (self.previous_path_d - self.current_path_d) > 0.00001:
             dist_path_reward = 0.5
-        elif (self.previous_dist_path - current_dist_path) < -0.00001:
+        elif (self.previous_path_d - self.current_path_d) < -0.00001:
             dist_path_reward = -0.5
         else:
             dist_path_reward = 0.0
         # Reward robot for closing the angle to the predefined path
-        if (self.previous_angle_path - current_angle_path) > 0.00001:
+        if (abs(self.previous_path_a) - abs(self.current_path_a)) > 0.00001:
             ang_path_reward = 0.5
-        elif (self.previous_angle_path - current_angle_path) < -0.00001:
+        elif (abs(self.previous_path_a) - abs(self.current_path_a)) < -0.00001:
             ang_path_reward = -0.5
         else:
             ang_path_reward = 0.0
@@ -307,11 +319,16 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             if self.reset_on_collision:
                 self.trigger_done = True
+            # Add action that lead to collision to action mask, only if an obstacle is detected through the sensors
+            if sum(self.current_dist_sensors) < sum(self.ds_max):
+                self.action_masks[self.get_ds_values_key()] = self.previous_action
+                print(f"Added new action mask for ds: {self.get_ds_values_key()}, "
+                      f"action: {self.action_names[self.previous_action]}.")
             collision_reward = -1.0
+        self.previous_action = action
 
         ################################################################################################################
         # Total reward calculation
-
         weighted_dist_tar_reward = round(self.reward_weight_dict["dist_tar"] * dist_tar_reward, 4)
         weighted_ang_tar_reward = round(self.reward_weight_dict["ang_tar"] * ang_tar_reward, 4)
         weighted_dist_path_reward = round(self.reward_weight_dict["dist_path"] * dist_path_reward, 4)
@@ -319,20 +336,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
-        # Baseline reward is distance and angle to target
-        reward = weighted_dist_tar_reward + weighted_ang_tar_reward
+        if weighted_dist_sensors_reward != 0:
+            weighted_dist_tar_reward /= 10
+            weighted_ang_tar_reward /= 10
 
-        # Add distance sensor reward
-        reward += weighted_dist_sensors_reward
-
-        # Add distance to path reward
-        reward += weighted_dist_path_reward
-
-        # Add collision penalty
-        reward += weighted_collision_reward
-
-        # Add reach target reward
-        reward += weighted_reach_tar_reward
+        # Add various weighted rewards together
+        reward = weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward + \
+                 weighted_dist_path_reward + weighted_collision_reward + weighted_reach_tar_reward
 
         if self.verbose:
             print(f"tar dist : {weighted_dist_tar_reward}")
@@ -343,12 +353,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             print(f"col obst : {weighted_collision_reward}")
             print(f"final reward: {reward}")
             print("-------")
-
-        self.previous_distance = current_distance
-        self.previous_angle = current_angle
-        self.previous_dist_path = current_dist_path
-        self.previous_angle_path = current_angle_path
-        self.previous_dist_sensors = current_dist_sensors
 
         if self.just_reset:
             self.just_reset = False
@@ -379,22 +383,46 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.obs_list = self.get_default_observation()
         # Reset path
         self.path_to_target = None
+        self.motor_speeds = [0.0, 0.0]
+        self.current_tar_d = 0.0
+        self.previous_tar_d = 0.0
+        self.current_tar_a = 0.0
+        self.previous_tar_a = 0.0
+        self.current_path_d = 0.0
+        self.previous_path_d = 0.0
+        self.current_path_a = 0.0
+        self.previous_path_a = 0.0
+        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
 
         # Set robot random rotation
         self.robot.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
 
         # Randomize obstacles and target
-        randomization_successful = False
-        while not randomization_successful:
-            # Randomize robot and obstacle positions
-            self.randomize_map()
-            self.simulationResetPhysics()
-            # Set the target in a valid position and find a path to it
-            # and repeat until a reachable position has been found for the target
-            self.path_to_target = self.get_random_path()
-            if self.path_to_target is not None:
-                randomization_successful = True
-                self.path_to_target = self.path_to_target[1:]  # Remove starting node
+        if self.current_difficulty["type"] == "random":
+            while True:
+                # Randomize robot and obstacle positions
+                self.randomize_map("random")
+                self.simulationResetPhysics()
+                # Set the target in a valid position and find a path to it
+                # and repeat until a reachable position has been found for the target
+                self.path_to_target = self.get_random_path(add_target=True)
+                if self.path_to_target is not None:
+                    self.path_to_target = self.path_to_target[1:]  # Remove starting node
+                    break
+        elif self.current_difficulty["type"] == "box":
+            while True:
+                max_distance_allowed = 1
+                # Randomize robot and obstacle positions
+                self.randomize_map("box", max_distance_allowed=max_distance_allowed)
+                self.simulationResetPhysics()
+                # Set the target in a valid position and find a path to it
+                # and repeat until a reachable position has been found for the target
+                self.path_to_target = self.get_random_path(add_target=False)
+                if self.path_to_target is not None:
+                    self.path_to_target = self.path_to_target[1:]  # Remove starting node
+                    break
+                max_distance_allowed += 1
         self.place_path(self.path_to_target)
         self.just_reset = True
 
@@ -413,17 +441,43 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         return [0.0 for _ in range(self.observation_space.shape[0])]
 
+    def update_current_metrics(self):
+        # Save previous values
+        self.previous_tar_d = self.current_tar_d
+        self.previous_tar_a = self.current_tar_a
+        self.previous_path_d = self.current_path_d
+        self.previous_path_a = self.current_path_a
+        self.previous_dist_sensors = self.current_dist_sensors
+
+        # Target distance and angle
+        self.current_tar_d = get_distance_from_target(self.robot, self.target)
+        self.current_tar_a = get_angle_from_target(self.robot, self.target)
+        # Path minimum distance and angle
+        self.current_path_d, current_path_closest_point = self.find_dist_to_path()
+        self.current_path_a = get_angle_from_target(self.robot, current_path_closest_point,
+                                                    node_mode=False)
+        # Get all distance sensor values
+        self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
+        for ds in self.distance_sensors:
+            self.current_dist_sensors.append(ds.getValue())  # NOQA
+
     def step(self, action):
         action = self.apply_action(action)
 
         if super(Supervisor, self).step(self.timestep) == -1:
             exit()
 
+        self.update_current_metrics()
+
+        obs = self.get_observations()
+        rew = self.get_reward(action)
+        done = self.is_done()
+        info = self.get_info()
         return (
-            self.get_observations(),
-            self.get_reward(action),
-            self.is_done(),
-            self.get_info(),
+            obs,
+            rew,
+            done,
+            info
         )
 
     def apply_action(self, action):
@@ -524,6 +578,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.set_velocity(motor_speeds[0], motor_speeds[1])
         return action
 
+    def get_ds_values_key(self):
+        return str([int(self.current_dist_sensors[i]) for i in range(len(self.current_dist_sensors))])
+
     def set_velocity(self, v_left, v_right):
         """
         Sets the two motor velocities.
@@ -548,26 +605,43 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             path_node.getField("translation").setSFVec3f(starting_pos)
             path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
 
-    def randomize_map(self):
+    def randomize_map(self, type_="random", max_distance_allowed=2):
         """
         TODO docstring
         """
         self.remove_objects()
         self.map.empty()
         self.map.add_random(self.robot, 0.0399261)  # Add robot in a random position
-        for node in random.sample(self.all_obstacles, self.number_of_obstacles):
-            self.map.add_random(node)
-            node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
 
-    def get_random_path(self):
+        if type_ == "random":
+            for obs_node in random.sample(self.all_obstacles, self.number_of_obstacles):
+                self.map.add_random(obs_node)
+                obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
+        elif type_ == "box":
+            robot_coordinates = self.map.find_by_name("robot")
+            # Keep trying to add target near robot at specified min-max distances
+            while not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
+                                        self.target,
+                                        min_distance=self.min_target_dist, max_distance=self.max_target_dist):
+                pass
+            # Insert obstacles around target
+            target_pos = self.map.find_by_name("target")[0:2]
+            for obs_node in random.sample(self.all_obstacles, self.number_of_obstacles):
+                while not self.map.add_near(target_pos[0], target_pos[1], obs_node, min_distance=1,
+                                            max_distance=max_distance_allowed):
+                    max_distance_allowed += 1
+                obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
+
+    def get_random_path(self, add_target=True):
         """
         TODO docstring
         """
         robot_coordinates = self.map.find_by_name("robot")
-        if not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
-                                 self.target,
-                                 min_distance=self.min_target_dist, max_distance=self.max_target_dist):
-            return None  # Need to re-randomize obstacles as add_near failed
+        if add_target:
+            if not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
+                                     self.target,
+                                     min_distance=self.min_target_dist, max_distance=self.max_target_dist):
+                return None  # Need to re-randomize obstacles as add_near failed
         return self.map.bfs_path(robot_coordinates, self.map.find_by_name("target"))
 
     def place_path(self, path):
@@ -636,7 +710,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                       "steps_per_episode": self.steps_per_episode, "episode_limit": episode_limit,
                       "obs_window_size": self.obs_window_size,
                       "on_target_threshold": self.on_target_threshold,
-                      "dist_sensors_weights": list(self.dist_sensors_weights),
                       "rewards_weights": self.reward_weight_dict,
                       "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
                       "difficulty": difficulty_dict,
