@@ -43,11 +43,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self, description, steps_per_episode=10000, obs_window_size=1,
+    def __init__(self, description, obs_window_size=1,
                  reset_on_collision=True, manual_control=False, verbose=False,
                  on_target_threshold=0.1,
-                 target_distance_weight=1.0, tar_angle_weight=1.0,
-                 dist_path_weight=0.0, dist_sensors_weight=1.0,
+                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0,
                  map_width=7, map_height=7, cell_size=None):
         """
@@ -128,25 +127,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.target = self.getFromDef("TARGET")
 
         # Set up misc
-        self.steps_per_episode = steps_per_episode
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
         # Various metrics, for the current step and the previous step
         self.current_tar_d = 0.0
         self.previous_tar_d = 0.0
         self.current_tar_a = 0.0
         self.previous_tar_a = 0.0
-        self.current_path_d = 0.0
-        self.previous_path_d = 0.0
-        self.current_path_a = 0.0
-        self.previous_path_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_action = None
 
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
-                                   "dist_path": dist_path_weight, "dist_sensors": dist_sensors_weight,
-                                   "tar_reach": tar_reach_weight, "collision": collision_weight}
+                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
+                                   "collision": collision_weight}
 
         self.reset_on_collision = reset_on_collision  # Whether to reset on collision
         self.trigger_done = False  # Used to trigger the done condition
@@ -297,23 +291,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0))
         dist_sensors_reward = np.mean(dist_sensors_rewards)
 
-        # Reward robot for closing the distance to the predefined path
-        if (self.previous_path_d - self.current_path_d) > 0.00001:
-            dist_path_reward = 0.5
-        elif (self.previous_path_d - self.current_path_d) < -0.00001:
-            dist_path_reward = -0.5
-        else:
-            dist_path_reward = 0.0
-        # Reward robot for closing the angle to the predefined path
-        if (abs(self.previous_path_a) - abs(self.current_path_a)) > 0.00001:
-            ang_path_reward = 0.5
-        elif (abs(self.previous_path_a) - abs(self.current_path_a)) < -0.00001:
-            ang_path_reward = -0.5
-        else:
-            ang_path_reward = 0.0
-
-        dist_path_reward += ang_path_reward
-
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
@@ -331,24 +308,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Total reward calculation
         weighted_dist_tar_reward = round(self.reward_weight_dict["dist_tar"] * dist_tar_reward, 4)
         weighted_ang_tar_reward = round(self.reward_weight_dict["ang_tar"] * ang_tar_reward, 4)
-        weighted_dist_path_reward = round(self.reward_weight_dict["dist_path"] * dist_path_reward, 4)
         weighted_dist_sensors_reward = round(self.reward_weight_dict["dist_sensors"] * dist_sensors_reward, 4)
         weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
 
-        if weighted_dist_sensors_reward != 0:
-            weighted_dist_tar_reward /= 10
-            weighted_ang_tar_reward /= 10
+        if dist_sensors_reward <= -0.4:
+            weighted_dist_tar_reward /= 5
+            weighted_ang_tar_reward /= 5
 
         # Add various weighted rewards together
-        reward = weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward + \
-                 weighted_dist_path_reward + weighted_collision_reward + weighted_reach_tar_reward
+        reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
+                  weighted_collision_reward + weighted_reach_tar_reward)
 
         if self.verbose:
             print(f"tar dist : {weighted_dist_tar_reward}")
             print(f"tar ang  : {weighted_ang_tar_reward}")
             print(f"tar stop : {weighted_reach_tar_reward}")
-            print(f"path d+a : {weighted_dist_path_reward}")
             print(f"sens dist: {weighted_dist_sensors_reward}")
             print(f"col obst : {weighted_collision_reward}")
             print(f"final reward: {reward}")
@@ -356,11 +331,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         if self.just_reset:
             self.just_reset = False
-            return {"total": 0.0, "target": 0.0, "sensors": 0.0, "path": 0.0, "reach_target": 0.0, "collision": 0.0}
+            return 0.0
         else:
-            return {"total": reward, "target": weighted_dist_tar_reward + weighted_ang_tar_reward,
-                    "sensors": weighted_dist_sensors_reward, "path": weighted_dist_path_reward,
-                    "reach_target": weighted_reach_tar_reward, "collision": weighted_collision_reward}
+            return reward
 
     def is_done(self):
         """
@@ -388,10 +361,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_d = 0.0
         self.current_tar_a = 0.0
         self.previous_tar_a = 0.0
-        self.current_path_d = 0.0
-        self.previous_path_d = 0.0
-        self.current_path_a = 0.0
-        self.previous_path_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
 
@@ -445,17 +414,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Save previous values
         self.previous_tar_d = self.current_tar_d
         self.previous_tar_a = self.current_tar_a
-        self.previous_path_d = self.current_path_d
-        self.previous_path_a = self.current_path_a
         self.previous_dist_sensors = self.current_dist_sensors
 
         # Target distance and angle
         self.current_tar_d = get_distance_from_target(self.robot, self.target)
         self.current_tar_a = get_angle_from_target(self.robot, self.target)
-        # Path minimum distance and angle
-        self.current_path_d, current_path_closest_point = self.find_dist_to_path()
-        self.current_path_a = get_angle_from_target(self.robot, current_path_closest_point,
-                                                    node_mode=False)
+
         # Get all distance sensor values
         self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
         for ds in self.distance_sensors:
@@ -707,7 +671,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             critic_size = agent.critic_net.get_size(from_numpy(np.array(
                 self.get_default_observation())).float().unsqueeze(0).cuda())
         param_dict = {"experiment_description": self.experiment_desc,
-                      "steps_per_episode": self.steps_per_episode, "episode_limit": episode_limit,
+                      "episode_limit": episode_limit,
                       "obs_window_size": self.obs_window_size,
                       "on_target_threshold": self.on_target_threshold,
                       "rewards_weights": self.reward_weight_dict,
