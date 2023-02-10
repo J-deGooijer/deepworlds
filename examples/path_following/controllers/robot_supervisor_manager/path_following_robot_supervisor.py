@@ -43,11 +43,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self, description, obs_window_size=1,
-                 reset_on_collision=True, manual_control=False, verbose=False,
+    def __init__(self, description, window_latest_dense=1, window_older_diluted=1,
+                 reset_on_collisions=True, manual_control=False, verbose=False,
                  on_target_threshold=0.1,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
-                 tar_reach_weight=1.0, collision_weight=1.0,
+                 tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None):
         """
         TODO docstring
@@ -71,7 +71,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
 
         # Set up gym observation and action spaces
-        self.obs_window_size = obs_window_size
+        self.window_latest_dense = window_latest_dense
+        self.window_older_diluted = window_older_diluted
         self.obs_list = []
         # Distance to target, angle to target
         # distance change, angle change, left motor speed, right motor speed
@@ -83,10 +84,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.single_obs_size = len(single_obs_low)
         obs_low = []
         obs_high = []
-        for _ in range(self.obs_window_size):
+        for _ in range(self.window_latest_dense + self.window_older_diluted):
             obs_low.extend(single_obs_low)
             obs_high.extend(single_obs_high)
             self.obs_list.extend([0.0 for _ in range(self.single_obs_size)])
+        self.obs_memory = [[0.0 for _ in range(self.single_obs_size)]
+                           for _ in range((self.window_older_diluted * int(np.ceil(1000 / self.timestep))) +
+                                          self.window_latest_dense)]
+
         self.observation_counter_limit = int(np.ceil(1000 / self.timestep))
         self.observation_counter = self.observation_counter_limit
         self.observation_space = Box(low=np.array(obs_low),
@@ -140,9 +145,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
-                                   "collision": collision_weight}
+                                   "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
 
-        self.reset_on_collision = reset_on_collision  # Whether to reset on collision
+        self.collisions_counter = 0
+        self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision
         self.trigger_done = False  # Used to trigger the done condition
         self.just_reset = True  # Whether the episode was just reset
 
@@ -209,21 +215,21 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Mask any action that led to a collision by looking in the dynamically updated action_masks
         if self.get_ds_values_key() in self.action_masks.keys():
             mask[self.action_masks[self.get_ds_values_key()]] = False
-            print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
+            # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
             # Unmask backward action
             mask[4] = True
-        if self.current_dist_sensors[0] < 2.92:
+        if self.current_dist_sensors[0] < 1.5:
             # Mask turn left action when we get a minimum value on the left-most sensor
             mask[1] = False
             # Unmask backward action
             mask[4] = True
-        if self.current_dist_sensors[-1] < 2.92:
+        if self.current_dist_sensors[-1] < 1.5:
             # Mask turn right action when we get a minimum value on the right-most sensor
             mask[2] = False
             # Unmask backward action
             mask[4] = True
         for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < 3.73:
+            if self.current_dist_sensors[i] < 3.5:
                 # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
                 mask[0] = False
                 # Unmask backward action
@@ -246,12 +252,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :rtype: list
         """
         # Add distance, angle
-        obs = [round(normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True), 2),
-               round(normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True), 2),
-               round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
-                                        clip=True), 2),
-               round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                        clip=True), 2)]
+        obs = [normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True),
+               normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
+               normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
+                                  clip=True),
+               normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
+                                  clip=True)]
 
         # Add distance sensor values
         ds_values = []
@@ -259,25 +265,41 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             ds_values.append(round(normalize_to_range(self.current_dist_sensors[i], 0, self.ds_max[i], 1.0, 0.0), 2))
         obs.extend(ds_values)
 
-        if self.observation_counter >= self.observation_counter_limit:
-            self.obs_list = self.obs_list[self.single_obs_size:]  # Drop oldest
-            self.obs_list.extend(obs)  # Add newest at the end
-            self.observation_counter = 0
-        else:
-            self.observation_counter += 1
+        self.obs_memory = self.obs_memory[1:]  # Drop oldest
+        self.obs_memory.append(obs)  # Add the latest observation
+
+        # Add the latest observations based on self.window_latest_dense
+        dense_obs = ([self.obs_memory[i] for i in range(len(self.obs_memory) - 1,
+                                                        len(self.obs_memory) - 1 - self.window_latest_dense, -1)])
+
+        diluted_obs = []
+        counter = 0
+        for j in range(len(self.obs_memory) - 2 - self.window_latest_dense, 0, -1):
+            counter += 1
+            if counter >= self.observation_counter_limit - 1:
+                diluted_obs.append(self.obs_memory[j])
+                counter = 0
+        self.obs_list = []
+        for single_obs in diluted_obs:
+            for item in single_obs:
+                self.obs_list.append(item)
+        for single_obs in dense_obs:
+            for item in single_obs:
+                self.obs_list.append(item)
+
         return self.obs_list
 
     def get_reward(self, action):
         # Reward for decreasing distance to the target
         dist_tar_reward = round(normalize_to_range(self.previous_tar_d - self.current_tar_d,
-                                                   -0.0013, 0.0013, -1.5, 1.0), 2)
+                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
 
         # Reward for decreasing angle to the target
         ang_tar_reward = 0.0
         if (abs(self.previous_tar_a) - abs(self.current_tar_a)) > 0.001:
             ang_tar_reward = 1.0
         elif (abs(self.previous_tar_a) - abs(self.current_tar_a)) < -0.001:
-            ang_tar_reward = -1.5
+            ang_tar_reward = -1.0
 
         # Reward for reaching the target
         reach_tar_reward = 0.0
@@ -294,15 +316,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
-            if self.reset_on_collision:
+            self.collisions_counter += 1
+            if self.collisions_counter >= self.reset_on_collisions - 1:
                 self.trigger_done = True
-            # Add action that lead to collision to action mask, only if an obstacle is detected through the sensors
-            if sum(self.current_dist_sensors) < sum(self.ds_max):
+                self.collisions_counter = 0
+            # Add action that lead to the first collision to action mask, only if an obstacle is detected through the sensors
+            if sum(self.current_dist_sensors) < sum(self.ds_max) and self.collisions_counter == 1:
                 self.action_masks[self.get_ds_values_key()] = self.previous_action
                 print(f"Added new action mask for ds: {self.get_ds_values_key()}, "
                       f"action: {self.action_names[self.previous_action]}.")
             collision_reward = -1.0
         self.previous_action = action
+
+        # Assign a penalty for each step
+        time_penalty = -1.0
 
         ################################################################################################################
         # Total reward calculation
@@ -311,14 +338,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_dist_sensors_reward = round(self.reward_weight_dict["dist_sensors"] * dist_sensors_reward, 4)
         weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
+        weighted_time_penalty = round(self.reward_weight_dict["time_penalty_weight"] * time_penalty, 4)
 
-        if dist_sensors_reward <= -0.4:
-            weighted_dist_tar_reward /= 5
-            weighted_ang_tar_reward /= 5
+        if dist_sensors_reward != 0.0:
+            weighted_dist_tar_reward /= 2
+            weighted_ang_tar_reward /= 2
 
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
-                  weighted_collision_reward + weighted_reach_tar_reward)
+                  weighted_collision_reward + weighted_reach_tar_reward + weighted_time_penalty)
 
         if self.verbose:
             print(f"tar dist : {weighted_dist_tar_reward}")
@@ -326,6 +354,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             print(f"tar stop : {weighted_reach_tar_reward}")
             print(f"sens dist: {weighted_dist_sensors_reward}")
             print(f"col obst : {weighted_collision_reward}")
+            print(f"time pen : {weighted_time_penalty}")
             print(f"final reward: {reward}")
             print("-------")
 
@@ -672,7 +701,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 self.get_default_observation())).float().unsqueeze(0).cuda())
         param_dict = {"experiment_description": self.experiment_desc,
                       "episode_limit": episode_limit,
-                      "obs_window_size": self.obs_window_size,
+                      "window_latest_dense": self.window_latest_dense,
+                      "window_older_diluted": self.window_older_diluted,
                       "on_target_threshold": self.on_target_threshold,
                       "rewards_weights": self.reward_weight_dict,
                       "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
