@@ -12,13 +12,13 @@ def mask_fn(env):
 def run():
     # Environment setup
     total_timesteps = 1_000_000
-    n_steps = 10_240  # Number of steps between training, effectively the size of the buffer to train on
-    batch_size = 256
-    maximum_episode_steps = 10_000
+    n_steps = 5120  # Number of steps between training, effectively the size of the buffer to train on
+    batch_size = 128
+    maximum_episode_steps = 10240
     gamma = 0.995
     target_kl = 0.04
-    experiment_name = "sb3_simple_ppo_test_defaults"
-    experiment_description = """Window 10, sb3"""
+    experiment_name = "basic_baseline"
+    experiment_description = """Window 5-10, sb3"""
     reset_on_collisions = 500
     verbose = False
     manual_control = False
