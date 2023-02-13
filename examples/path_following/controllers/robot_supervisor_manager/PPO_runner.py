@@ -97,6 +97,7 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
+    max_ds_range = 50.0  # in cm
     add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
@@ -120,7 +121,7 @@ def run():
 
     env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, window_latest_dense=window_latest_dense,
                                                  window_older_diluted=window_older_diluted,
-                                                 add_action_to_obs=add_action_to_obs,
+                                                 add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
                                                  verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
