@@ -29,8 +29,8 @@ def run():
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_dis_weight = 1.0
-    tar_ang_weight = 0.2
-    ds_weight = 0.0
+    tar_ang_weight = 0.5
+    ds_weight = 0.5
     tar_reach_weight = 10.0
     col_weight = 2.0
     time_penalty_weight = 0.1
