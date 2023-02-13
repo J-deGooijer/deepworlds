@@ -708,6 +708,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         import json
         param_dict = {"experiment_description": self.experiment_desc,
                       "maximum_episode_steps": maximum_episode_steps,
+                      "add_action_to_obs": self.add_action_to_obs,
                       "window_latest_dense": self.window_latest_dense,
                       "window_older_diluted": self.window_older_diluted,
                       "on_target_threshold": self.on_target_threshold,
