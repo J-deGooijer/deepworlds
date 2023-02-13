@@ -44,7 +44,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, description, window_latest_dense=1, window_older_diluted=1, add_action_to_obs=True,
-                 reset_on_collisions=True, manual_control=False, verbose=False,
+                 max_ds_range=150.0, reset_on_collisions=True, manual_control=False, verbose=False,
                  on_target_threshold=0.1,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
@@ -124,7 +124,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.distance_sensors.append(self.getDevice(f"distance sensor({str(i)})"))
                     self.distance_sensors[-1].enable(self.timestep)  # NOQA
                     ds_node = ds_group.getMFNode(i)
-                    self.ds_max.append(ds_node.getField("lookupTable").getMFVec3f(-1)[1])
+                    ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range/100.0, max_ds_range, 0.0])
+                    self.ds_max.append(max_ds_range)  # NOQA
 
         # Touch sensor is used to determine when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
@@ -223,23 +224,24 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             # Mask any action that led to a collision by looking in the dynamically updated action_masks
             mask[self.action_masks[self.get_ds_values_key()]] = False
             # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
-        if self.current_dist_sensors[0] < 1.5:
-            # Mask turn left action when we get a minimum value on the left-most sensor
+        if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
+            # Mask turn left action when we get a minimum value on the left-most sensors
             mask[1] = False
-        if self.current_dist_sensors[-1] < 1.5:
-            # Mask turn right action when we get a minimum value on the right-most sensor
+        if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
+            # Mask turn right action when we get a minimum value on the right-most sensors
             mask[2] = False
 
         # Unmask backward action if any sensor is reading a small value
         for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < 15.0:
+            if self.current_dist_sensors[i] < 10.0:
                 mask[3] = True
                 break
 
         # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
         # to avoid unnecessary collisions
+        forward_facing_sensor_thresholds = [0.0, 3.0, 5.0, 4.5, 3.5, 1.5, 1.0, 1.5, 3.5, 4.5, 5.0, 3.0, 0.0]
         for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < 3.5:
+            if self.current_dist_sensors[i] < forward_facing_sensor_thresholds[i]:
                 mask[0] = False
                 break
         return mask
