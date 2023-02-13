@@ -43,10 +43,12 @@ def run():
                        "diff_2": {"type": "box", "number_of_obstacles": 6, "min_target_dist": 3, "max_target_dist": 4},
                        "diff_3": {"type": "box", "number_of_obstacles": 8, "min_target_dist": 4, "max_target_dist": 5},
                        "diff_4": {"type": "box", "number_of_obstacles": 10, "min_target_dist": 5, "max_target_dist": 6},
-                       "test_diff": {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 12}}
+                       "test_diff":
+                           {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 12}}
 
     env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, window_latest_dense=window_latest_dense,
-                                                 window_older_diluted=window_older_diluted, add_action_to_obs=add_action_to_obs,
+                                                 window_older_diluted=window_older_diluted,
+                                                 add_action_to_obs=add_action_to_obs,
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
                                                  verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
