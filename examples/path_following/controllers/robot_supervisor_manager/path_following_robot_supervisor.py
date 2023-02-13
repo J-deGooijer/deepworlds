@@ -98,7 +98,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                      high=np.array(obs_high),
                                      dtype=np.float64)
         self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
-        self.action_space = Discrete(5)  # Actions: Forward, Left, Right, Stop, Backward
+        self.action_space = Discrete(4)  # Actions: Forward, Left, Right, Backward
 
         # Dictionary with distance sensor values as key and masked action as value
         self.action_masks = {}
@@ -502,9 +502,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             action = 1
         if key == ord("D"):
             action = 2
-        if key == ord("S"):
-            action = 3
         if key == ord("X"):
+            action = 3
+        if key == ord("S"):
             action = 4
         if key == Keyboard.CONTROL + ord("W"):
             action = 5
@@ -532,11 +532,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         elif action == 2:  # Turn right
             gas = 0.0
             wheel = 1.0
-        elif action == 3:  # Don't move
-            gas = 0.0
-            wheel = 0.0
-        elif action == 4:  # Move backwards
+        elif action == 3:  # Move backwards
             gas = -1.0
+            wheel = 0.0
+        elif action == 4:  # Stop
+            gas = 0.0
             wheel = 0.0
         elif action == 5:  # Move forward fast
             gas = 4.0
