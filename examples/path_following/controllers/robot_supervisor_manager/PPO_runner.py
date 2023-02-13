@@ -70,7 +70,6 @@ class AdditionalInfoCallback(BaseCallback):
         print(f"{full_string:<37} |")
         full_string = f"| difficulty              | {self.current_difficulty[0]}"
         print(f"{full_string:<37} |")
-        pass
 
     def _on_training_end(self) -> None:
         """
@@ -85,10 +84,10 @@ def mask_fn(env):
 
 def run():
     # Environment setup
-    total_timesteps = 2_500_000
-    n_steps = 5120  # Number of steps between training, effectively the size of the buffer to train on
+    total_timesteps = 2_560_000
+    n_steps = 5_120  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 128
-    maximum_episode_steps = 10240
+    maximum_episode_steps = 51_200
     gamma = 0.995
     target_kl = None
     vf_coef = 0.5
@@ -103,8 +102,8 @@ def run():
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_dis_weight = 1.0
-    tar_ang_weight = 0.5
-    ds_weight = 0.5
+    tar_ang_weight = 0.25
+    ds_weight = 0.1
     tar_reach_weight = 10.0
     col_weight = 2.0
     time_penalty_weight = 0.1
