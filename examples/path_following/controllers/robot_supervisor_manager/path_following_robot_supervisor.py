@@ -710,6 +710,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                       "add_action_to_obs": self.add_action_to_obs,
                       "window_latest_dense": self.window_latest_dense,
                       "window_older_diluted": self.window_older_diluted,
+                      "max_ds_range": self.ds_max[0],
                       "on_target_threshold": self.on_target_threshold,
                       "rewards_weights": self.reward_weight_dict,
                       "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
