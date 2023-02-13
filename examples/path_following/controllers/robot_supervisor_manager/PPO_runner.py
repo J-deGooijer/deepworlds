@@ -25,6 +25,7 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
+    add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
@@ -45,7 +46,7 @@ def run():
                        "test_diff": {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 12}}
 
     env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, window_latest_dense=window_latest_dense,
-                                                 window_older_diluted=window_older_diluted,
+                                                 window_older_diluted=window_older_diluted, add_action_to_obs=add_action_to_obs,
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
                                                  verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
