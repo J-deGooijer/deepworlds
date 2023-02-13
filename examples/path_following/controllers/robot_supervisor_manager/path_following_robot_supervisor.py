@@ -310,7 +310,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for avoiding obstacles
         dist_sensors_rewards = []
         for i in range(len(self.distance_sensors)):
-            dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0))
+            dist_sensors_rewards.append(
+                normalize_to_range(self.current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0))
         dist_sensors_reward = np.mean(dist_sensors_rewards)
 
         # Check if the robot has collided with anything, assign negative reward
@@ -686,21 +687,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         print("render() is not used")
 
-    def export_parameters(self, path, agent, difficulty_dict, episode_limit):
+    def export_parameters(self, path,
+                          net_arch, gamma, target_kl, vf_coef, ent_coef,
+                          difficulty_dict, maximum_episode_steps):
         import json
-        from torch import from_numpy
-        if not agent.use_cuda:
-            actor_size = agent.actor_net.get_size(from_numpy(np.array(
-                self.get_default_observation())).float().unsqueeze(0))
-            critic_size = agent.critic_net.get_size(from_numpy(np.array(
-                self.get_default_observation())).float().unsqueeze(0))
-        else:
-            actor_size = agent.actor_net.get_size(from_numpy(np.array(
-                self.get_default_observation())).float().unsqueeze(0).cuda())
-            critic_size = agent.critic_net.get_size(from_numpy(np.array(
-                self.get_default_observation())).float().unsqueeze(0).cuda())
         param_dict = {"experiment_description": self.experiment_desc,
-                      "episode_limit": episode_limit,
+                      "maximum_episode_steps": maximum_episode_steps,
                       "window_latest_dense": self.window_latest_dense,
                       "window_older_diluted": self.window_older_diluted,
                       "on_target_threshold": self.on_target_threshold,
@@ -708,12 +700,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                       "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
                       "difficulty": difficulty_dict,
                       "ppo_params": {
-                          "actor_size": actor_size,
-                          "critic_size": critic_size,
-                          "clip_param": agent.clip_param,
-                          "max_grad_norm": agent.max_grad_norm,
-                          "ppo_update_iters": agent.ppo_update_iters,
-                          "gamma": agent.gamma,
+                          "net_arch": net_arch,
+                          "gamma": gamma,
+                          "target_kl": target_kl,
+                          "vf_coef": vf_coef,
+                          "ent_coef": ent_coef,
                       }
                       }
         with open(path, 'w') as fp:
