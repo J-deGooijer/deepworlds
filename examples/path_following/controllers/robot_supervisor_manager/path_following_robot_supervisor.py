@@ -43,7 +43,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         after hitting on obstacles, with a time limit, same as before.
     """
 
-    def __init__(self, description, window_latest_dense=1, window_older_diluted=1,
+    def __init__(self, description, window_latest_dense=1, window_older_diluted=1, add_action_to_obs=True,
                  reset_on_collisions=True, manual_control=False, verbose=False,
                  on_target_threshold=0.1,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
@@ -74,19 +74,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
         self.action_space = Discrete(4)  # Actions: Forward, Left, Right, Backward
 
+        self.add_action_to_obs = add_action_to_obs
         self.window_latest_dense = window_latest_dense
         self.window_older_diluted = window_older_diluted
         self.obs_list = []
         # Distance to target, angle to target, distance change, angle change
         single_obs_low = [0.0, -1.0, -1.0, -1.0]
         # Add action "one-hot"
-        single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
+        if self.add_action_to_obs:
+            single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
 
         single_obs_high = [1.0, 1.0, 1.0, 1.0]
+        if self.add_action_to_obs:
+            single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
-        single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
 
         self.single_obs_size = len(single_obs_low)
         obs_low = []
@@ -266,13 +269,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                   clip=True),
                normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
                                   clip=True)]
-        # Add action one-hot
-        action_one_hot = [0.0 for _ in range(self.action_space.n)]
-        try:
-            action_one_hot[action] = 1.0
-        except IndexError:
-            pass
-        obs.extend(action_one_hot)
+        if self.add_action_to_obs:
+            # Add action one-hot
+            action_one_hot = [0.0 for _ in range(self.action_space.n)]
+            try:
+                action_one_hot[action] = 1.0
+            except IndexError:
+                pass
+            obs.extend(action_one_hot)
 
         # Add distance sensor values
         ds_values = []
