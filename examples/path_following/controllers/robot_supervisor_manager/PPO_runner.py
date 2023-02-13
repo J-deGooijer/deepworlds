@@ -67,20 +67,20 @@ def run():
     model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
                         n_steps=n_steps, batch_size=batch_size, gamma=gamma,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
-                        verbose=1, tensorboard_log=f"./experiments/{experiment_name}")
+                        verbose=1, tensorboard_log=experiment_dir)
     env.set_difficulty(difficulty_dict["diff_1"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1")
-    model.save(f"./experiments/{experiment_name}/experiment_name_diff_1_agent")
+    model.save(experiment_dir + "/experiment_name_diff_1_agent")
     env.set_difficulty(difficulty_dict["diff_2"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2")
-    model.save(f"./experiments/{experiment_name}/experiment_name_diff_2_agent")
+    model.save(experiment_dir + "/experiment_name_diff_2_agent")
     env.set_difficulty(difficulty_dict["diff_3"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3")
-    model.save(f"./experiments/{experiment_name}/experiment_name_diff_3_agent")
+    model.save(experiment_dir + "/experiment_name_diff_3_agent")
     env.set_difficulty(difficulty_dict["diff_4"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4")
-    model.save(f"./experiments/{experiment_name}/experiment_name_diff_4_agent")
-    # model = PPO.load(f"./experiments/{experiment_name}/experiment_name_diff_4_agent")
+    model.save(experiment_dir + "/experiment_name_diff_4_agent")
+    # model = PPO.load(experiment_dir + "/experiment_name_diff_4_agent")
 
     obs = env.reset()
     while True:
