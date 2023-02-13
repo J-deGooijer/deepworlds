@@ -232,7 +232,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Unmask backward action if any sensor is reading a small value
         for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < 35.0:
+            if self.current_dist_sensors[i] < 15.0:
                 mask[3] = True
                 break
 
