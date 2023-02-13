@@ -216,35 +216,31 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_action_mask(self):
         mask = [True for _ in range(self.action_space.n)]
-        if sum(self.current_dist_sensors) < sum(self.ds_max):
-            # Unmask backward action if obstacles are detected
-            mask[3] = True
-        else:
-            # Mask backward action if no obstacles are detected
-            mask[3] = False
+        # Mask backward action by default
+        mask[3] = False
 
-        # Mask any action that led to a collision by looking in the dynamically updated action_masks
         if self.get_ds_values_key() in self.action_masks.keys():
+            # Mask any action that led to a collision by looking in the dynamically updated action_masks
             mask[self.action_masks[self.get_ds_values_key()]] = False
             # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
-            # Unmask backward action
-            mask[3] = True
         if self.current_dist_sensors[0] < 1.5:
             # Mask turn left action when we get a minimum value on the left-most sensor
             mask[1] = False
-            # Unmask backward action
-            mask[3] = True
         if self.current_dist_sensors[-1] < 1.5:
             # Mask turn right action when we get a minimum value on the right-most sensor
             mask[2] = False
-            # Unmask backward action
-            mask[3] = True
+
+        # Unmask backward action if any sensor is reading a small value
+        for i in range(1, len(self.current_dist_sensors) - 1):
+            if self.current_dist_sensors[i] < 35.0:
+                mask[3] = True
+                break
+
+        # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
+        # to avoid unnecessary collisions
         for i in range(1, len(self.current_dist_sensors) - 1):
             if self.current_dist_sensors[i] < 3.5:
-                # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
                 mask[0] = False
-                # Unmask backward action
-                mask[3] = True
                 break
         return mask
 
