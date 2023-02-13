@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -1.834332716232179e-29 0.06 1.396909999999982e-17
-        rotation 1 4.476891081759651e-09 -4.476896263055249e-09 1.5707999999993847
+        translation -1.8327252166586137e-29 0.06 1.3969099999999822e-17
+        rotation 1 4.476891104612447e-09 -4.476896762148499e-09 1.5707999999993825
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -2.971232273563297e-28 -0.06 4.501310000000013e-17
-        rotation 1 -1.2182123256351996e-09 1.218194505118523e-09 1.5707999999994031
+        translation -2.9709054633248e-28 -0.06 4.5013100000000055e-17
+        rotation 1 -1.2182120905768496e-09 1.2181944626409587e-09 1.5707999999994025
         children [
           USE WHEEL
         ]
@@ -148,9 +148,9 @@ DEF ROBOT Robot {
           name "distance sensor(0)"
           lookupTable [
             0.0775 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -158,9 +158,9 @@ DEF ROBOT Robot {
           name "distance sensor(1)"
           lookupTable [
             0.05 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -168,9 +168,9 @@ DEF ROBOT Robot {
           name "distance sensor(2)"
           lookupTable [
             0.025 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -178,9 +178,9 @@ DEF ROBOT Robot {
           name "distance sensor(3)"
           lookupTable [
             0.018 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -188,9 +188,9 @@ DEF ROBOT Robot {
           name "distance sensor(4)"
           lookupTable [
             0.015 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -198,18 +198,18 @@ DEF ROBOT Robot {
           name "distance sensor(5)"
           lookupTable [
             0.0138 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
           name "distance sensor(6)"
           lookupTable [
             0.0135 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -217,9 +217,9 @@ DEF ROBOT Robot {
           name "distance sensor(7)"
           lookupTable [
             0.0138 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -227,9 +227,9 @@ DEF ROBOT Robot {
           name "distance sensor(8)"
           lookupTable [
             0.015 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -237,9 +237,9 @@ DEF ROBOT Robot {
           name "distance sensor(9)"
           lookupTable [
             0.018 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -247,9 +247,9 @@ DEF ROBOT Robot {
           name "distance sensor(10)"
           lookupTable [
             0.025 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -257,9 +257,9 @@ DEF ROBOT Robot {
           name "distance sensor(11)"
           lookupTable [
             0.05 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
         DistanceSensor {
           translation 0.051 0 0
@@ -267,9 +267,9 @@ DEF ROBOT Robot {
           name "distance sensor(12)"
           lookupTable [
             0.0775 0 0
-            0.35 35 0
-            1.5 150 0
+            0.5 50 0
           ]
+          type "sonar"
         }
       ]
     }
