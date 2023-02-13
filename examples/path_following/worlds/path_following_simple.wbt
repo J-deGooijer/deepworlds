@@ -11,8 +11,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023a/project
 WorldInfo {
 }
 DEF VIEWPOINT Viewpoint {
-  orientation -0.4475656338972604 0.44235788741695675 0.7771772660044491 1.831579911049773
-  position 0.12641135843163612 -4.966075063812037 8.563000735266906
+  orientation -0.4385208981976907 0.43941917465885505 0.783970797151285 1.8098243261817741
+  position 0.09936443608159116 -4.249052333985365 6.638291380512064
   follow "robot"
 }
 TexturedBackground {
@@ -149,6 +149,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.0775 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -158,6 +159,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.05 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -167,6 +169,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.025 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -176,6 +179,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.018 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -185,6 +189,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.015 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -194,6 +199,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.0138 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -202,6 +208,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.0135 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -211,6 +218,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.0138 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -220,6 +228,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.015 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -229,6 +238,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.018 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -238,6 +248,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.025 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -247,6 +258,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.05 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
         DistanceSensor {
@@ -256,6 +268,7 @@ DEF ROBOT Robot {
           lookupTable [
             0.0775 0 0
             0.35 35 0
+            1.5 150 0
           ]
         }
       ]
