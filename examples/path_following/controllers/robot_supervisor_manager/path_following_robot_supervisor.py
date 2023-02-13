@@ -71,16 +71,23 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
 
         # Set up gym observation and action spaces
+        self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
+        self.action_space = Discrete(4)  # Actions: Forward, Left, Right, Backward
+
         self.window_latest_dense = window_latest_dense
         self.window_older_diluted = window_older_diluted
         self.obs_list = []
-        # Distance to target, angle to target
-        # distance change, angle change, left motor speed, right motor speed
-        single_obs_low = [0.0, -1.0, -1.0, -1.0]  # , -1.0, -1.0, -1.0, -1.0]
+        # Distance to target, angle to target, distance change, angle change
+        single_obs_low = [0.0, -1.0, -1.0, -1.0]
+        # Add action "one-hot"
+        single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
-        single_obs_high = [1.0, 1.0, 1.0, 1.0]  # , 1.0, 1.0, 1.0, 1.0]
+
+        single_obs_high = [1.0, 1.0, 1.0, 1.0]
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
+        single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
+
         self.single_obs_size = len(single_obs_low)
         obs_low = []
         obs_high = []
@@ -97,8 +104,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.observation_space = Box(low=np.array(obs_low),
                                      high=np.array(obs_high),
                                      dtype=np.float64)
-        self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
-        self.action_space = Discrete(4)  # Actions: Forward, Left, Right, Backward
 
         # Dictionary with distance sensor values as key and masked action as value
         self.action_masks = {}
@@ -240,7 +245,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                 break
         return mask
 
-    def get_observations(self):
+    def get_observations(self, action=None):
         """
         This method returns the observation vector of the agent.
         It consists of the distance and angle to the target, as well as the 5 distance sensor values.
@@ -254,13 +259,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Observation vector
         :rtype: list
         """
-        # Add distance, angle
+        # Add distance, angle, distance change, angle change
         obs = [normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
                normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
                                   clip=True),
                normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
                                   clip=True)]
+        # Add action one-hot
+        action_one_hot = [0.0 for _ in range(self.action_space.n)]
+        try:
+            action_one_hot[action] = 1.0
+        except IndexError:
+            pass
+        obs.extend(action_one_hot)
 
         # Add distance sensor values
         ds_values = []
@@ -466,7 +478,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         self.update_current_metrics()
 
-        obs = self.get_observations()
+        obs = self.get_observations(action)
         rew = self.get_reward(action)
         done = self.is_done()
         info = self.get_info()
@@ -492,7 +504,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return:
         """
         if self.manual_control:
-            action = 3
+            action = 4
         gas = 0.0
         wheel = 0.0
         key = self.keyboard.getKey()
