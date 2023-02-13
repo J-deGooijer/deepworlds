@@ -155,9 +155,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
                                    "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
-        weights_sum = sum(self.reward_weight_dict.values())
-        for key, val in self.reward_weight_dict.items():
-            self.reward_weight_dict[key] = val / weights_sum
 
         self.collisions_counter = 0
         self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision

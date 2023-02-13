@@ -97,7 +97,7 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
-    max_ds_range = 50.0  # in cm
+    max_ds_range = 40.0  # in cm
     add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
