@@ -1,9 +1,82 @@
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
+from stable_baselines3.common.callbacks import BaseCallback
 from gym.wrappers import TimeLimit
 import torch
 import os
+
+
+class AdditionalInfoCallback(BaseCallback):
+    """
+    A custom callback that derives from ``BaseCallback``.
+
+    :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
+    """
+    def __init__(self, experiment_name, current_difficulty=None, verbose=1):
+        super(AdditionalInfoCallback, self).__init__(verbose)
+        # Those variables will be accessible in the callback
+        # (they are defined in the base class)
+        # The RL model
+        # self.model = None  # type: BaseRLModel
+        # An alias for self.model.get_env(), the environment used for training
+        # self.training_env = None  # type: Union[gym.Env, VecEnv, None]
+        # Number of time the callback was called
+        # self.n_calls = 0  # type: int
+        # self.num_timesteps = 0  # type: int
+        # local and global variables
+        # self.locals = None  # type: Dict[str, Any]
+        # self.globals = None  # type: Dict[str, Any]
+        # The logger object, used to report things in the terminal
+        # self.logger = None  # type: logger.Logger
+        # # Sometimes, for event callback, it is useful
+        # # to have access to the parent object
+        # self.parent = None  # type: Optional[BaseCallback]
+        self.experiment_name = experiment_name
+        self.current_difficulty = current_difficulty
+
+    def _on_training_start(self) -> None:
+        """
+        This method is called before the first rollout starts.
+        """
+        print(f"Starting training for experiment \"{self.experiment_name}\".")
+        print(f"Difficulty \"{self.current_difficulty}\".")
+
+    def _on_rollout_start(self) -> None:
+        """
+        A rollout is the collection of environment interaction
+        using the current policy.
+        This event is triggered before collecting new samples.
+        """
+        pass
+
+    def _on_step(self) -> bool:
+        """
+        This method will be called by the model after each call to `env.step()`.
+
+        For child callback (of an `EventCallback`), this will be called
+        when the event is triggered.
+
+        :return: (bool) If the callback returns False, training is aborted early.
+        """
+        return True
+
+    def _on_rollout_end(self) -> None:
+        """
+        This event is triggered before updating the policy.
+        """
+        print(f"{'-'*38}")
+        full_string = f"| experiment_name         | {self.experiment_name}"
+        print(f"{full_string:<37} |")
+        full_string = f"| difficulty              | {self.current_difficulty[0]}"
+        print(f"{full_string:<37} |")
+        pass
+
+    def _on_training_end(self) -> None:
+        """
+        This event is triggered before exiting the `learn()` method.
+        """
+        pass
 
 
 def mask_fn(env):
@@ -21,7 +94,7 @@ def run():
     vf_coef = 0.5
     ent_coef = 0.01
     experiment_name = "baseline"
-    experiment_description = """Window 5-10, sb3"""
+    experiment_description = """Baseline description."""
     reset_on_collisions = 500
     verbose = False
     manual_control = False
@@ -71,8 +144,10 @@ def run():
                         n_steps=n_steps, batch_size=batch_size, gamma=gamma,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
                         verbose=1, tensorboard_log=experiment_dir)
+    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name,
+                                               current_difficulty=list(difficulty_dict.items())[0])
     env.set_difficulty(difficulty_dict["diff_1"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1", callback=printing_callback)
     model.save(experiment_dir + "/experiment_name_diff_1_agent")
     env.set_difficulty(difficulty_dict["diff_2"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2")
