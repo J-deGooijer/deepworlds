@@ -45,7 +45,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def __init__(self, description, window_latest_dense=1, window_older_diluted=1, add_action_to_obs=True,
                  max_ds_range=150.0, reset_on_collisions=True, manual_control=False, verbose=False,
-                 on_target_threshold=0.1,
+                 on_target_threshold=0.1, dist_sensors_threshold=0.0,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
@@ -116,6 +116,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Set up sensors
         self.distance_sensors = []
         self.ds_max = []
+        self.dist_sensors_threshold = dist_sensors_threshold
         # Loop through the ds_group node to get max sensor values and initialize the devices
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
@@ -328,8 +329,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for avoiding obstacles
         dist_sensors_rewards = []
         for i in range(len(self.distance_sensors)):
-            dist_sensors_rewards.append(
-                normalize_to_range(self.current_dist_sensors[i], 0.0, self.ds_max[i], -1.0, 0.0))
+            dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i],
+                                                           0.0, min(self.dist_sensors_threshold, self.ds_max[i]),
+                                                           -1.0, 0.0, clip=True))
         dist_sensors_reward = np.mean(dist_sensors_rewards)
 
         # Check if the robot has collided with anything, assign negative reward
