@@ -67,7 +67,7 @@ class AdditionalInfoCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        normed_reward = self.env.sum_normed_reward / self.model.n_steps
+        normed_reward = self.env.sum_normed_reward / self.model.n_steps  # NOQA
         self.logger.record("rollout/normalized reward", normed_reward)
         self.env.reset_sum_reward()
 
@@ -90,7 +90,7 @@ def run():
     batch_size = 128
     maximum_episode_steps = 51_200
     gamma = 0.995
-    target_kl = None
+    target_kl = 0.5
     vf_coef = 0.5
     ent_coef = 0.01
     experiment_name = "baseline"
@@ -98,18 +98,18 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
-    max_ds_range = 40.0  # in cm
+    max_ds_range = 100.0  # in cm
     add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_dis_weight = 1.0
-    tar_ang_weight = 0.25
-    ds_weight = 0.1
+    tar_ang_weight = 0.5
+    ds_weight = 1.0
     tar_reach_weight = 10.0
     col_weight = 2.0
     time_penalty_weight = 0.1
-    net_arch = dict(pi=[512, 256, 128], vf=[1024, 512, 256])
+    net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
     map_w, map_h = 7, 7
     cell_size = None
@@ -151,13 +151,13 @@ def run():
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1", callback=printing_callback)
     model.save(experiment_dir + "/experiment_name_diff_1_agent")
     env.set_difficulty(difficulty_dict["diff_2"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2", callback=printing_callback)
     model.save(experiment_dir + "/experiment_name_diff_2_agent")
     env.set_difficulty(difficulty_dict["diff_3"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3", callback=printing_callback)
     model.save(experiment_dir + "/experiment_name_diff_3_agent")
     env.set_difficulty(difficulty_dict["diff_4"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4", callback=printing_callback)
     model.save(experiment_dir + "/experiment_name_diff_4_agent")
     # model = MaskablePPO.load(experiment_dir + "/experiment_name_diff_4_agent")
     env.set_difficulty(difficulty_dict["test_diff"])
