@@ -219,10 +219,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Mask backward action by default
         mask[3] = False
 
-        if self.get_ds_values_key() in self.action_masks.keys():
-            # Mask any action that led to a collision by looking in the dynamically updated action_masks
-            mask[self.action_masks[self.get_ds_values_key()]] = False
-            # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
+        # if self.get_ds_values_key() in self.action_masks.keys():
+        #     # Mask any action that led to a collision by looking in the dynamically updated action_masks
+        #     mask[self.action_masks[self.get_ds_values_key()]] = False
+        #     # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
         if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
             # Mask turn left action when we get a minimum value on the left-most sensors
             mask[1] = False
@@ -339,11 +339,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             if self.collisions_counter >= self.reset_on_collisions - 1:
                 self.trigger_done = True
                 self.collisions_counter = 0
-            # Add action that lead to the first collision to action mask, only if an obstacle is detected through the sensors
-            if sum(self.current_dist_sensors) < sum(self.ds_max) and self.collisions_counter == 1:
-                self.action_masks[self.get_ds_values_key()] = self.previous_action
-                print(f"Added new action mask for ds: {self.get_ds_values_key()}, "
-                      f"action: {self.action_names[self.previous_action]}.")
+            # Add action that lead to the first collision to action mask, only if an obstacle is detected
+            # through the sensors
+            # if sum(self.current_dist_sensors) < sum(self.ds_max) and self.collisions_counter == 1:
+            #     self.action_masks[self.get_ds_values_key()] = self.previous_action
+            #     print(f"Added new action mask for ds: {self.get_ds_values_key()}, "
+            #           f"action: {self.action_names[self.previous_action]}.")
             collision_reward = -1.0
         self.previous_action = action
 
