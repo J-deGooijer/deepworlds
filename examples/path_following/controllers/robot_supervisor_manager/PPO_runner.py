@@ -1,10 +1,11 @@
-from path_following_robot_supervisor import PathFollowingRobotSupervisor
-from sb3_contrib import MaskablePPO
-from sb3_contrib.common.wrappers import ActionMasker
-from stable_baselines3.common.callbacks import BaseCallback
-from gym.wrappers import TimeLimit
-import torch
 import os
+import numpy as np
+import torch
+from gym.wrappers import TimeLimit
+from stable_baselines3.common.callbacks import BaseCallback
+from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib import MaskablePPO
+from path_following_robot_supervisor import PathFollowingRobotSupervisor
 
 
 class AdditionalInfoCallback(BaseCallback):
@@ -84,7 +85,7 @@ def mask_fn(env):
 
 def run():
     # Environment setup
-    seed = 1.0
+    seed = 1
     total_timesteps = 2_560_000
     n_steps = 5_120  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 128
@@ -119,6 +120,10 @@ def run():
                        "diff_4": {"type": "box", "number_of_obstacles": 10, "min_target_dist": 5, "max_target_dist": 6},
                        "test_diff":
                            {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 12}}
+
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
 
     env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, window_latest_dense=window_latest_dense,
                                                  window_older_diluted=window_older_diluted,
