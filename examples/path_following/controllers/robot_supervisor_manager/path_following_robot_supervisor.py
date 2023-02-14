@@ -329,9 +329,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for avoiding obstacles
         dist_sensors_rewards = []
         for i in range(len(self.distance_sensors)):
-            dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i],
-                                                           0.0, min(self.dist_sensors_threshold, self.ds_max[i]),
-                                                           -1.0, 0.0, clip=True))
+            # -0.1344, 0.1344 are the min and max changes when moving straight towards or away to/from an obstacle,
+            # higher changes, e.g. when turning, are clipped.
+            if (self.previous_dist_sensors[i] <= min(self.dist_sensors_threshold, self.ds_max[i]) and
+                    abs(self.current_dist_sensors[i] - self.previous_dist_sensors[i]) > 0.001):
+                dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i] - self.previous_dist_sensors[i],
+                                                               -0.1344, 0.1344,
+                                                               -1.0, 1.0, clip=True))
         dist_sensors_reward = np.mean(dist_sensors_rewards)
 
         # Check if the robot has collided with anything, assign negative reward
