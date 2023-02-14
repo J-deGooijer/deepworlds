@@ -13,7 +13,8 @@ class AdditionalInfoCallback(BaseCallback):
 
     :param verbose: (int) Verbosity level 0: not output 1: info 2: debug
     """
-    def __init__(self, experiment_name, current_difficulty=None, verbose=1):
+
+    def __init__(self, experiment_name, env, current_difficulty=None, verbose=1):
         super(AdditionalInfoCallback, self).__init__(verbose)
         # Those variables will be accessible in the callback
         # (they are defined in the base class)
@@ -34,13 +35,14 @@ class AdditionalInfoCallback(BaseCallback):
         # self.parent = None  # type: Optional[BaseCallback]
         self.experiment_name = experiment_name
         self.current_difficulty = current_difficulty
+        self.env = env
 
     def _on_training_start(self) -> None:
         """
         This method is called before the first rollout starts.
         """
-        print(f"Starting training for experiment \"{self.experiment_name}\".")
-        print(f"Difficulty \"{self.current_difficulty}\".")
+        self.logger.record("experiment_name", self.experiment_name)
+        self.logger.record("difficulty", self.current_difficulty[0])
 
     def _on_rollout_start(self) -> None:
         """
@@ -65,11 +67,9 @@ class AdditionalInfoCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        print(f"{'-'*38}")
-        full_string = f"| experiment_name         | {self.experiment_name}"
-        print(f"{full_string:<37} |")
-        full_string = f"| difficulty              | {self.current_difficulty[0]}"
-        print(f"{full_string:<37} |")
+        normed_reward = self.env.sum_normed_reward / self.model.n_steps
+        self.logger.record("rollout/normalized reward", normed_reward)
+        self.env.reset_sum_reward()
 
     def _on_training_end(self) -> None:
         """
@@ -84,6 +84,7 @@ def mask_fn(env):
 
 def run():
     # Environment setup
+    seed = 1.0
     total_timesteps = 2_560_000
     n_steps = 5_120  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 128
@@ -128,7 +129,7 @@ def run():
                                                  target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
                                                  dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
                                                  collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
-                                                 map_width=map_w, map_height=map_h, cell_size=cell_size),
+                                                 map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                     maximum_episode_steps)
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
 
@@ -144,7 +145,7 @@ def run():
                         n_steps=n_steps, batch_size=batch_size, gamma=gamma,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
                         verbose=1, tensorboard_log=experiment_dir)
-    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name,
+    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
                                                current_difficulty=list(difficulty_dict.items())[0])
     env.set_difficulty(difficulty_dict["diff_1"])
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1", callback=printing_callback)
