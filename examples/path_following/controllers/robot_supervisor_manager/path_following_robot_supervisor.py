@@ -48,11 +48,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  on_target_threshold=0.1,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
-                 map_width=7, map_height=7, cell_size=None):
+                 map_width=7, map_height=7, cell_size=None, seed=None):
         """
         TODO docstring
         """
         super().__init__()
+        if seed is not None:
+            random.seed(seed)
         self.experiment_desc = description
         self.verbose = verbose
         self.manual_control = manual_control
@@ -124,7 +126,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.distance_sensors.append(self.getDevice(f"distance sensor({str(i)})"))
                     self.distance_sensors[-1].enable(self.timestep)  # NOQA
                     ds_node = ds_group.getMFNode(i)
-                    ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range/100.0, max_ds_range, 0.0])
+                    ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range / 100.0, max_ds_range, 0.0])
                     self.ds_max.append(max_ds_range)  # NOQA
 
         # Touch sensor is used to determine when the robot collides with an obstacle
@@ -155,7 +157,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
                                    "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
-
+        self.sum_normed_reward = 0.0  # Used as a metric
         self.collisions_counter = 0
         self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision
         self.trigger_done = False  # Used to trigger the done condition
@@ -305,8 +307,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_reward(self, action):
         # Reward for decreasing distance to the target
+        if self.just_reset:
+            self.previous_tar_d = self.current_tar_d
         dist_tar_reward = round(normalize_to_range(self.previous_tar_d - self.current_tar_d,
-                                                   -0.0013, 0.0013, -1.0, 1.0), 2)
+                                                   -0.0013, 0.0013, -1.0, 1.0, clip=True), 2)
 
         # Reward for decreasing angle to the target
         ang_tar_reward = 0.0
@@ -355,9 +359,17 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
         weighted_time_penalty = round(self.reward_weight_dict["time_penalty_weight"] * time_penalty, 4)
 
-        if dist_sensors_reward != 0.0:
-            weighted_dist_tar_reward /= 2
-            weighted_ang_tar_reward /= 2
+        # Calculate normed reward and add it to sum to use it as metric
+        weights_sum = sum(self.reward_weight_dict.values())
+        weights_normed = {}
+        for key, val in self.reward_weight_dict.items():
+            weights_normed[key] = (val / weights_sum)
+        self.sum_normed_reward += (weights_normed["dist_tar"] * dist_tar_reward +
+                                   weights_normed["ang_tar"] * ang_tar_reward +
+                                   weights_normed["dist_sensors"] * dist_sensors_reward +
+                                   weights_normed["tar_reach"] * collision_reward +
+                                   weights_normed["collision"] * reach_tar_reward +
+                                   weights_normed["time_penalty_weight"] * time_penalty)
 
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
@@ -378,6 +390,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             return 0.0
         else:
             return reward
+
+    def reset_sum_reward(self):
+        self.sum_normed_reward = 0.0
 
     def is_done(self):
         """
