@@ -233,7 +233,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Unmask backward action if any sensor is reading a small value
         for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < 10.0:
+            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
                 mask[3] = True
                 break
 
@@ -326,17 +326,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             reach_tar_reward = 1.0
             self.trigger_done = True  # Terminate episode
 
-        # Reward for avoiding obstacles
-        dist_sensors_rewards = []
+        # Reward for distance sensors values
+        dist_sensors_reward = 0
         for i in range(len(self.distance_sensors)):
-            # -0.1344, 0.1344 are the min and max changes when moving straight towards or away to/from an obstacle,
-            # higher changes, e.g. when turning, are clipped.
-            if (self.previous_dist_sensors[i] <= min(self.dist_sensors_threshold, self.ds_max[i]) and
-                    abs(self.current_dist_sensors[i] - self.previous_dist_sensors[i]) > 0.001):
-                dist_sensors_rewards.append(normalize_to_range(self.current_dist_sensors[i] - self.previous_dist_sensors[i],
-                                                               -0.1344, 0.1344,
-                                                               -1.0, 1.0, clip=True))
-        dist_sensors_reward = np.mean(dist_sensors_rewards)
+            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
+                dist_sensors_reward = -1.0  # If any sensor is under threshold assign penalty
+                break
 
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
@@ -524,11 +519,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type action: int
         :return:
         """
+        key = self.keyboard.getKey()
+        if key == ord("O"):
+            print(self.obs_list)
+        if key == ord("R"):
+            print(self.get_reward(action))
         if self.manual_control:
             action = 4
         gas = 0.0
         wheel = 0.0
-        key = self.keyboard.getKey()
         if key == ord("W"):
             action = 0
         if key == ord("A"):
