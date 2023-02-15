@@ -99,7 +99,7 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
-    ds_type = "generic"
+    ds_type = "sonar"
     max_ds_range = 100.0  # in cm
     dist_sensors_threshold = 10
     add_action_to_obs = True
@@ -107,13 +107,13 @@ def run():
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
-    tar_a_weight_multiplier = 1.0  # When obstacles are detected, target angle reward is multiplied by this
-    tar_dis_weight = 1.0
-    tar_ang_weight = 1.0
+    tar_a_weight_multiplier = 0.0  # When obstacles are detected, target angle reward is multiplied by this
+    tar_dis_weight = 2.0
+    tar_ang_weight = 2.0
     ds_weight = 1.0
-    tar_reach_weight = 100.0
-    col_weight = 2.0
-    time_penalty_weight = 1.0
+    tar_reach_weight = 1000.0
+    col_weight = 5.0
+    time_penalty_weight = 0.1
     net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
     map_w, map_h = 7, 7
