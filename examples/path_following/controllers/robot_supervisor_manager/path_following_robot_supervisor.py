@@ -44,7 +44,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, description, window_latest_dense=1, window_older_diluted=1, add_action_to_obs=True,
-                 max_ds_range=150.0, reset_on_collisions=True, manual_control=False, verbose=False,
+                 max_ds_range=150.0, reset_on_collisions=0, manual_control=False, verbose=False,
                  on_target_threshold=0.1, dist_sensors_threshold=0.0,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
@@ -429,6 +429,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.collisions_counter = 0
 
         # Set robot random rotation
         self.robot.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
