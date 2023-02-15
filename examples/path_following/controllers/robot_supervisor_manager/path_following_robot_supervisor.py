@@ -54,6 +54,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         TODO docstring
         """
         super().__init__()
+        self.seed = seed
         if seed is not None:
             random.seed(seed)
         self.experiment_desc = description
@@ -118,6 +119,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.distance_sensors = []
         self.ds_max = []
         self.dist_sensors_threshold = dist_sensors_threshold
+        self.ds_type = ds_type
         # Loop through the ds_group node to get max sensor values and initialize the devices
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
@@ -129,7 +131,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.distance_sensors[-1].enable(self.timestep)  # NOQA
                     ds_node = ds_group.getMFNode(i)
                     ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range / 100.0, max_ds_range, 0.0])
-                    ds_node.getField("type").setSFString(ds_type)
+                    ds_node.getField("type").setSFString(self.ds_type)
                     self.ds_max.append(max_ds_range)  # NOQA
 
         # Touch sensor is used to determine when the robot collides with an obstacle
@@ -234,12 +236,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         #     # Mask any action that led to a collision by looking in the dynamically updated action_masks
         #     mask[self.action_masks[self.get_ds_values_key()]] = False
         #     # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
-        # if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
-        #     # Mask turn left action when we get a minimum value on the left-most sensors
-        #     mask[1] = False
-        # if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
-        #     # Mask turn right action when we get a minimum value on the right-most sensors
-        #     mask[2] = False
+        if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
+            # Mask increase right action when we get a minimum value on the left-most sensors
+            mask[1] = False
+        if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
+            # Mask increase left action when we get a minimum value on the right-most sensors
+            mask[0] = False
 
         # Unmask backward action if any sensor is reading a small value
         # for i in range(1, len(self.current_dist_sensors) - 1):
@@ -247,8 +249,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         #         mask[3] = True
         #         break
 
-        # Mask increasing of speed actions when there is a reading below a threshold in any of the forward-facing sensors
-        # to avoid unnecessary collisions
+        # Mask increasing of speed actions when there is a reading below a threshold in any of the
+        # forward-facing sensors to avoid unnecessary collisions
         forward_facing_sensor_thresholds = [0.0, 3.0, 5.0, 4.5, 3.5, 1.5, 1.0, 1.5, 3.5, 4.5, 5.0, 3.0, 0.0]
         for i in range(1, len(self.current_dist_sensors) - 1):
             if self.current_dist_sensors[i] < forward_facing_sensor_thresholds[i]:
@@ -826,12 +828,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                           difficulty_dict, maximum_episode_steps):
         import json
         param_dict = {"experiment_description": self.experiment_desc,
+                      "seed": self.seed,
                       "maximum_episode_steps": maximum_episode_steps,
                       "add_action_to_obs": self.add_action_to_obs,
                       "window_latest_dense": self.window_latest_dense,
                       "window_older_diluted": self.window_older_diluted,
+                      "ds_type": self.ds_type,
                       "max_ds_range": self.ds_max[0],
-                      "on_target_threshold": self.on_target_threshold,
+                      "tar_d_weight_multiplier": self.tar_d_weight_multiplier,
+                      "tar_a_weight_multiplier": self.tar_a_weight_multiplier,
                       "rewards_weights": self.reward_weight_dict,
                       "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
                       "difficulty": difficulty_dict,
