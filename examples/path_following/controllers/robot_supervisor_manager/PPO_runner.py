@@ -99,6 +99,7 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
+    ds_type = "generic"
     max_ds_range = 100.0  # in cm
     dist_sensors_threshold = 20
     add_action_to_obs = True
@@ -136,7 +137,7 @@ def run():
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
                                                  verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
-                                                 dist_sensors_threshold=dist_sensors_threshold,
+                                                 dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
                                                  target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
                                                  dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
                                                  collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
