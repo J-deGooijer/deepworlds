@@ -89,7 +89,7 @@ def run():
     total_timesteps = 2_560_000
     n_steps = 5_120  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 128
-    maximum_episode_steps = 51_200
+    maximum_episode_steps = 25_600
     gamma = 0.995
     target_kl = 0.5
     vf_coef = 0.5
@@ -106,11 +106,11 @@ def run():
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_dis_weight = 1.0
-    tar_ang_weight = 0.5
+    tar_ang_weight = 1.0
     ds_weight = 1.0
-    tar_reach_weight = 10.0
+    tar_reach_weight = 100.0
     col_weight = 2.0
-    time_penalty_weight = 0.1
+    time_penalty_weight = 1.0
     net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
     map_w, map_h = 7, 7
@@ -155,18 +155,22 @@ def run():
     printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
                                                current_difficulty=list(difficulty_dict.items())[0])
     env.set_difficulty(difficulty_dict["diff_1"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1", callback=printing_callback)
-    model.save(experiment_dir + "/experiment_name_diff_1_agent")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
     env.set_difficulty(difficulty_dict["diff_2"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2", callback=printing_callback)
-    model.save(experiment_dir + "/experiment_name_diff_2_agent")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
     env.set_difficulty(difficulty_dict["diff_3"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3", callback=printing_callback)
-    model.save(experiment_dir + "/experiment_name_diff_3_agent")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
     env.set_difficulty(difficulty_dict["diff_4"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4", callback=printing_callback)
-    model.save(experiment_dir + "/experiment_name_diff_4_agent")
-    # model = MaskablePPO.load(experiment_dir + "/experiment_name_diff_4_agent")
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
+    # model = MaskablePPO.load(experiment_dir + f"/{experiment_name}_diff_3_agent")
     env.set_difficulty(difficulty_dict["test_diff"])
 
     obs = env.reset()
