@@ -46,6 +46,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def __init__(self, description, window_latest_dense=1, window_older_diluted=1, add_action_to_obs=True,
                  max_ds_range=150.0, reset_on_collisions=0, manual_control=False, verbose=False,
                  on_target_threshold=0.1, dist_sensors_threshold=0.0, ds_type="generic",
+                 tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
@@ -159,6 +160,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
                                    "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
+        self.tar_d_weight_multiplier = tar_d_weight_multiplier
+        self.tar_a_weight_multiplier = tar_a_weight_multiplier
         self.sum_normed_reward = 0.0  # Used as a metric
         self.collisions_counter = 0
         self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision
@@ -366,6 +369,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_reach_tar_reward = round(self.reward_weight_dict["tar_reach"] * reach_tar_reward, 4)
         weighted_collision_reward = round(self.reward_weight_dict["collision"] * collision_reward, 4)
         weighted_time_penalty = round(self.reward_weight_dict["time_penalty_weight"] * time_penalty, 4)
+
+        if weighted_dist_sensors_reward != 0:
+            weighted_dist_tar_reward = weighted_dist_tar_reward * self.tar_d_weight_multiplier
+            weighted_ang_tar_reward = weighted_ang_tar_reward * self.tar_a_weight_multiplier
 
         # Calculate normed reward and add it to sum to use it as metric
         weights_sum = sum(self.reward_weight_dict.values())

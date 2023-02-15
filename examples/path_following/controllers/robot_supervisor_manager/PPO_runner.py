@@ -101,11 +101,13 @@ def run():
     manual_control = False
     ds_type = "generic"
     max_ds_range = 100.0  # in cm
-    dist_sensors_threshold = 20
+    dist_sensors_threshold = 10
     add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
+    tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
+    tar_a_weight_multiplier = 1.0  # When obstacles are detected, target angle reward is multiplied by this
     tar_dis_weight = 1.0
     tar_ang_weight = 1.0
     ds_weight = 1.0
@@ -138,6 +140,8 @@ def run():
                                                  verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
                                                  dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
+                                                 tar_d_weight_multiplier=tar_d_weight_multiplier,
+                                                 tar_a_weight_multiplier=tar_a_weight_multiplier,
                                                  target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
                                                  dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
                                                  collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
