@@ -568,7 +568,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if key == ord("D"):
             action = 3
         if key == ord("S"):
-            action = 4
+            self.motor_speeds = [0.0, 0.0]
         # if key == Keyboard.CONTROL + ord("W"):
         #     action = 5
         # if key == Keyboard.CONTROL + ord("A"):
