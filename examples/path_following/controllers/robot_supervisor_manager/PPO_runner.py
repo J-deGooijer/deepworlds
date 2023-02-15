@@ -115,12 +115,16 @@ def run():
     # Map setup
     map_w, map_h = 7, 7
     cell_size = None
-    difficulty_dict = {"diff_1": {"type": "box", "number_of_obstacles": 4, "min_target_dist": 2, "max_target_dist": 3},
-                       "diff_2": {"type": "box", "number_of_obstacles": 6, "min_target_dist": 3, "max_target_dist": 4},
-                       "diff_3": {"type": "box", "number_of_obstacles": 8, "min_target_dist": 4, "max_target_dist": 5},
-                       "diff_4": {"type": "box", "number_of_obstacles": 10, "min_target_dist": 5, "max_target_dist": 6},
-                       "test_diff":
-                           {"type": "random", "number_of_obstacles": 25, "min_target_dist": 6, "max_target_dist": 12}}
+    difficulty_dict = {"diff_1": {"type": "corridor", "number_of_obstacles": 2,
+                                  "min_target_dist": 2, "max_target_dist": 2},
+                       "diff_2": {"type": "corridor", "number_of_obstacles": 4,
+                                  "min_target_dist": 3, "max_target_dist": 3},
+                       "diff_3": {"type": "corridor", "number_of_obstacles": 6,
+                                  "min_target_dist": 4, "max_target_dist": 4},
+                       "diff_4": {"type": "corridor", "number_of_obstacles": 8,
+                                  "min_target_dist": 5, "max_target_dist": 5},
+                       "test_diff": {"type": "corridor", "number_of_obstacles": 10,
+                                     "min_target_dist": 6, "max_target_dist": 6}}
 
     if seed is not None:
         torch.manual_seed(seed)
