@@ -74,22 +74,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
 
         # Set up gym observation and action spaces
-        self.action_names = ["Forward", "Left", "Right", "Stop", "Backward"]
-        self.action_space = Discrete(4)  # Actions: Forward, Left, Right, Backward
+        self.action_names = ["Inc left", "Inc right", "Dec left", "Dec right", "No act"]
+        self.action_space = Discrete(5)  # Actions: "Inc left", "Inc right", "Dec left", "Dec right", "No act"
 
         self.add_action_to_obs = add_action_to_obs
         self.window_latest_dense = window_latest_dense
         self.window_older_diluted = window_older_diluted
         self.obs_list = []
-        # Distance to target, angle to target, distance change, angle change
-        single_obs_low = [0.0, -1.0, -1.0, -1.0]
+        # Distance to target, angle to target, distance change, angle change, motor speed left, motor speed right
+        single_obs_low = [0.0, -1.0, -1.0, -1.0, -1.0, -1.0]
         # Add action "one-hot"
         if self.add_action_to_obs:
             single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
         # Append distance sensor values
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
 
-        single_obs_high = [1.0, 1.0, 1.0, 1.0]
+        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         if self.add_action_to_obs:
             single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
@@ -225,33 +225,35 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         print("Changed difficulty to:", difficulty_dict)
 
     def get_action_mask(self):
+        # "Inc left", "Inc right", "Dec left", "Dec right", "No act"
         mask = [True for _ in range(self.action_space.n)]
         # Mask backward action by default
-        mask[3] = False
+        # mask[3] = False
 
         # if self.get_ds_values_key() in self.action_masks.keys():
         #     # Mask any action that led to a collision by looking in the dynamically updated action_masks
         #     mask[self.action_masks[self.get_ds_values_key()]] = False
         #     # print(f"Masked action {self.action_names[self.action_masks[self.get_ds_values_key()]]}, mask: {mask}")
-        if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
-            # Mask turn left action when we get a minimum value on the left-most sensors
-            mask[1] = False
-        if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
-            # Mask turn right action when we get a minimum value on the right-most sensors
-            mask[2] = False
+        # if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
+        #     # Mask turn left action when we get a minimum value on the left-most sensors
+        #     mask[1] = False
+        # if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
+        #     # Mask turn right action when we get a minimum value on the right-most sensors
+        #     mask[2] = False
 
         # Unmask backward action if any sensor is reading a small value
-        for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
-                mask[3] = True
-                break
+        # for i in range(1, len(self.current_dist_sensors) - 1):
+        #     if self.current_dist_sensors[i] < self.dist_sensors_threshold:
+        #         mask[3] = True
+        #         break
 
-        # Mask forward action when there is a reading below a threshold in any of the forward-facing sensors
+        # Mask increasing of speed actions when there is a reading below a threshold in any of the forward-facing sensors
         # to avoid unnecessary collisions
         forward_facing_sensor_thresholds = [0.0, 3.0, 5.0, 4.5, 3.5, 1.5, 1.0, 1.5, 3.5, 4.5, 5.0, 3.0, 0.0]
         for i in range(1, len(self.current_dist_sensors) - 1):
             if self.current_dist_sensors[i] < forward_facing_sensor_thresholds[i]:
                 mask[0] = False
+                mask[1] = False
                 break
         return mask
 
@@ -275,7 +277,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
                                   clip=True),
                normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                  clip=True)]
+                                  clip=True),
+               self.motor_speeds[0], self.motor_speeds[1]]
         if self.add_action_to_obs:
             # Add action one-hot
             action_one_hot = [0.0 for _ in range(self.action_space.n)]
@@ -554,85 +557,84 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             print(self.get_reward(action))
         if self.manual_control:
             action = 4
-        gas = 0.0
-        wheel = 0.0
-        if key == ord("W"):
+        if key == ord("Q"):
             action = 0
-        if key == ord("A"):
+        if key == ord("E"):
             action = 1
-        if key == ord("D"):
+        if key == ord("A"):
             action = 2
-        if key == ord("X"):
+        if key == ord("D"):
             action = 3
         if key == ord("S"):
             action = 4
-        if key == Keyboard.CONTROL + ord("W"):
-            action = 5
-        if key == Keyboard.CONTROL + ord("A"):
-            action = 6
-        if key == Keyboard.CONTROL + ord("D"):
-            action = 7
-        if key == Keyboard.CONTROL + ord("X"):
-            action = 8
-        if key == ord("Q"):
-            action = 9
-        if key == ord("E"):
-            action = 10
-        if key == ord("Z"):
-            action = 11
-        if key == ord("C"):
-            action = 12
+        # if key == Keyboard.CONTROL + ord("W"):
+        #     action = 5
+        # if key == Keyboard.CONTROL + ord("A"):
+        #     action = 6
+        # if key == Keyboard.CONTROL + ord("D"):
+        #     action = 7
+        # if key == Keyboard.CONTROL + ord("X"):
+        #     action = 8
+        # if key == ord("Q"):
+        #     action = 9
+        # if key == ord("E"):
+        #     action = 10
+        # if key == ord("Z"):
+        #     action = 11
+        # if key == ord("C"):
+        #     action = 12
 
-        if action == 0:  # Move forward
-            gas = 1.0
-            wheel = 0.0
-        elif action == 1:  # Turn left
-            gas = 0.0
-            wheel = -1.0
-        elif action == 2:  # Turn right
-            gas = 0.0
-            wheel = 1.0
-        elif action == 3:  # Move backwards
-            gas = -1.0
-            wheel = 0.0
-        elif action == 4:  # Stop
-            gas = 0.0
-            wheel = 0.0
-        elif action == 5:  # Move forward fast
-            gas = 4.0
-            wheel = 0.0
-        elif action == 6:  # Move left fast
-            gas = 0.0
-            wheel = -4.0
-        elif action == 7:  # Move right fast
-            gas = 0.0
-            wheel = 4.0
-        elif action == 8:  # Move backwards fast
-            gas = -4.0
-            wheel = 0.0
-        elif action == 9:  # Move forward-left fast
-            gas = 4.0
-            wheel = -4.0
-        elif action == 10:  # Move forward-right fast
-            gas = 4.0
-            wheel = 4.0
-        elif action == 11:  # Move backwards-left fast
-            gas = -4.0
-            wheel = 4.0
-        elif action == 12:  # Move backwards-right fast
-            gas = -4.0
-            wheel = -4.0
+        # gas = 0.0
+        # wheel = 0.0
+        if action == 0:  # Increase left wheel
+            if self.motor_speeds[0] < 1.0:
+                self.motor_speeds[0] += 0.25
+        elif action == 1:  # Increase right wheel
+            if self.motor_speeds[1] < 1.0:
+                self.motor_speeds[1] += 0.25
+        elif action == 2:  # Decrease left wheel
+            if self.motor_speeds[0] > -1.0:
+                self.motor_speeds[0] -= 0.25
+        elif action == 3:  # Decrease left wheel
+            if self.motor_speeds[0] > -1.0:
+                self.motor_speeds[1] -= 0.25
+        elif action == 4:  # No action
+            pass
+        # elif action == 5:  # Move forward fast
+        #     gas = 4.0
+        #     wheel = 0.0
+        # elif action == 6:  # Move left fast
+        #     gas = 0.0
+        #     wheel = -4.0
+        # elif action == 7:  # Move right fast
+        #     gas = 0.0
+        #     wheel = 4.0
+        # elif action == 8:  # Move backwards fast
+        #     gas = -4.0
+        #     wheel = 0.0
+        # elif action == 9:  # Move forward-left fast
+        #     gas = 4.0
+        #     wheel = -4.0
+        # elif action == 10:  # Move forward-right fast
+        #     gas = 4.0
+        #     wheel = 4.0
+        # elif action == 11:  # Move backwards-left fast
+        #     gas = -4.0
+        #     wheel = 4.0
+        # elif action == 12:  # Move backwards-right fast
+        #     gas = -4.0
+        #     wheel = -4.0
 
         # Apply gas to both motor speeds, add turning rate to one, subtract from other
-        motor_speeds = [0.0, 0.0]
-        motor_speeds[0] = gas + wheel
-        motor_speeds[1] = gas - wheel
+        # self.motor_speeds = [0.0, 0.0]
+        # self.motor_speeds[0] = gas + wheel
+        # self.motor_speeds[1] = gas - wheel
 
         # Clip final motor speeds to [-4, 4] to be sure that motors get valid values
-        motor_speeds = np.clip(motor_speeds, -4, 4)
+        self.motor_speeds = np.clip(self.motor_speeds, -1.0, 1.0)
 
         # Apply motor speeds
-        self.set_velocity(motor_speeds[0], motor_speeds[1])
+        self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
         return action
 
     def get_ds_values_key(self):
