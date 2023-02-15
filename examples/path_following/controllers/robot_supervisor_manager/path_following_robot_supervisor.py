@@ -186,6 +186,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.all_obstacles.append(child)
             self.all_obstacles_starting_positions.append(child.getField("translation").getSFVec3f())
 
+        # Wall references
+        self.walls = [self.getFromDef("WALL_1"), self.getFromDef("WALL_2")]
+        self.walls_starting_positions = [self.getFromDef("WALL_1").getField("translation").getSFVec3f(),
+                                         self.getFromDef("WALL_2").getField("translation").getSFVec3f()]
+
         # Path node references and starting positions used to reset them
         self.all_path_nodes = []
         self.all_path_nodes_starting_positions = []
@@ -453,6 +458,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.path_to_target = self.path_to_target[1:]  # Remove starting node
                     break
                 max_distance_allowed += 1
+
+        elif self.current_difficulty["type"] == "corridor":
+            while True:
+                max_distance_allowed = 1
+                # Randomize robot and obstacle positions
+                self.randomize_map("corridor")
+                self.simulationResetPhysics()
+                # Set the target in a valid position and find a path to it
+                # and repeat until a reachable position has been found for the target
+                self.path_to_target = self.get_random_path(add_target=False)
+                if self.path_to_target is not None:
+                    self.path_to_target = self.path_to_target[1:]  # Remove starting node
+                    break
+                max_distance_allowed += 1
         self.place_path(self.path_to_target)
         self.just_reset = True
 
@@ -640,13 +659,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         self.remove_objects()
         self.map.empty()
-        self.map.add_random(self.robot, 0.0399261)  # Add robot in a random position
+        robot_z = 0.0399261
 
         if type_ == "random":
+            self.map.add_random(self.robot, robot_z)  # Add robot in a random position
             for obs_node in random.sample(self.all_obstacles, self.number_of_obstacles):
                 self.map.add_random(obs_node)
                 obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
         elif type_ == "box":
+            self.map.add_random(self.robot, robot_z)  # Add robot in a random position
             robot_coordinates = self.map.find_by_name("robot")
             # Keep trying to add target near robot at specified min-max distances
             while not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
@@ -660,6 +681,73 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                             max_distance=max_distance_allowed):
                     max_distance_allowed += 1
                 obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
+        elif type_ == "corridor":
+            # Add robot to starting position
+            self.map.add_cell((self.map_width - 1) // 2, self.map_height - 1, self.robot, robot_z)
+            robot_coordinates = [(self.map_width - 1) // 2, self.map_height - 1]
+            # Limit the provided min, max target distances
+            if self.max_target_dist > self.map_height - 1:
+                print(f"max_target_dist set out of range, setting to: {min(self.max_target_dist, self.map_height - 1)}")
+            if self.min_target_dist > self.map_height - 1:
+                print(f"min_target_dist set out of range, setting to: {min(self.min_target_dist, self.map_height - 1)}")
+            # Get true min max target positions
+            min_target_pos = self.map_height - 1 - min(self.max_target_dist, self.map_height - 1)
+            max_target_pos = self.map_height - 1 - min(self.min_target_dist, self.map_height - 1)
+            if min_target_pos == max_target_pos:
+                target_y = min_target_pos
+            else:
+                target_y = random.randint(min_target_pos, max_target_pos)
+            # Finally add target
+            self.map.add_cell(robot_coordinates[0], target_y, self.target)
+
+            # If there is space between target and robot, add obstacles
+            if abs(robot_coordinates[1] - target_y) > 1:
+                # We add two obstacles on each row between the target and robot so there is one free cell for the path
+                # To generate the obstacle placements within the corridor, we need to make sure that there is
+                # a free path within the corridor that leads from one row to the next.
+                # This means we need to avoid the case where there's a free place in the first column and on the next
+                # row the free place is in the third row
+                def add_two_obstacles():
+                    col_choices = [robot_coordinates[0] + i for i in range(-1, 2, 1)]
+                    random_col_1_ = random.choice(col_choices)
+                    col_choices.remove(random_col_1_)
+                    random_col_2_ = random.choice(col_choices)
+                    col_choices.remove(random_col_2_)
+                    return col_choices[0], random_col_1_, random_col_2_
+
+                max_obstacles = (abs(robot_coordinates[1] - target_y) - 1) * 2
+                random_sample = random.sample(self.all_obstacles, min(max_obstacles, self.number_of_obstacles))
+                prev_free_col = 0
+                for row_coord, obs_node_index in \
+                        zip(range(target_y + 1, robot_coordinates[1]), range(0, len(random_sample), 2)):
+                    # For each row between the robot and the target, add 2 obstacles
+                    if prev_free_col == 0:
+                        # If previous free column is the center one, any positions for the new row are valid
+                        prev_free_col, random_col_1, random_col_2 = add_two_obstacles()
+                    else:
+                        # If previous free column is not the center one, then the new free one cannot be
+                        # on the other side
+                        current_free_col, random_col_1, random_col_2 = add_two_obstacles()
+                        while abs(prev_free_col - current_free_col) == 2:
+                            current_free_col, random_col_1, random_col_2 = add_two_obstacles()
+                        prev_free_col = current_free_col
+                    self.map.add_cell(random_col_1, row_coord, random_sample[obs_node_index])
+                    random_sample[obs_node_index].getField("rotation"). \
+                        setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
+                    self.map.add_cell(random_col_2, row_coord, random_sample[obs_node_index + 1])
+                    random_sample[obs_node_index + 1].getField("rotation"). \
+                        setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
+
+            # Abuse the grid map and add wall objects as placeholder to limit path finding within the corridor
+            for row_coord in range(target_y + 1, robot_coordinates[1]):
+                self.map.add_cell(robot_coordinates[0] - 2, row_coord, self.walls[0])
+                self.map.add_cell(robot_coordinates[0] + 2, row_coord, self.walls[1])
+            new_position = self.walls_starting_positions[0]
+            new_position[0] = -0.75
+            self.walls[0].getField("translation").setSFVec3f(new_position)
+            new_position = self.walls_starting_positions[1]
+            new_position[0] = 0.75
+            self.walls[1].getField("translation").setSFVec3f(new_position)
 
     def get_random_path(self, add_target=True):
         """
