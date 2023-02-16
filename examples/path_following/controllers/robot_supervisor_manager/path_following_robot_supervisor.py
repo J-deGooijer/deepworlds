@@ -229,8 +229,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     def get_action_mask(self):
         # "Inc left", "Inc right", "Dec left", "Dec right", "No act"
         mask = [True for _ in range(self.action_space.n)]
-        # Mask backward action by default
-        # mask[3] = False
+        # Mask decrease actions that will cause the agent to move backwards by default
+        if self.motor_speeds[0] <= 0.0 and self.motor_speeds[1] <= 0.0:
+            mask[2] = False
+            mask[3] = False
 
         # if self.get_ds_values_key() in self.action_masks.keys():
         #     # Mask any action that led to a collision by looking in the dynamically updated action_masks
@@ -244,10 +246,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             mask[0] = False
 
         # Unmask backward action if any sensor is reading a small value
-        # for i in range(1, len(self.current_dist_sensors) - 1):
-        #     if self.current_dist_sensors[i] < self.dist_sensors_threshold:
-        #         mask[3] = True
-        #         break
+        for i in range(1, len(self.current_dist_sensors) - 1):
+            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
+                mask[2] = True
+                mask[3] = True
+                break
 
         # Mask increasing of speed actions when there is a reading below a threshold in any of the
         # forward-facing sensors to avoid unnecessary collisions
