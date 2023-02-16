@@ -68,6 +68,8 @@ class AdditionalInfoCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
+        self.logger.record("experiment_name", self.experiment_name)
+        self.logger.record("difficulty", self.current_difficulty[0])
         normed_reward = self.env.sum_normed_reward / self.model.n_steps  # NOQA
         self.logger.record("rollout/normalized reward", normed_reward)
         self.env.reset_sum_reward()
