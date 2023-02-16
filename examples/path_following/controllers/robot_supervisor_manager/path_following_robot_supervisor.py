@@ -838,6 +838,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                       "window_older_diluted": self.window_older_diluted,
                       "ds_type": self.ds_type,
                       "max_ds_range": self.ds_max[0],
+                      "dist_sensors_threshold": self.dist_sensors_threshold,
                       "tar_d_weight_multiplier": self.tar_d_weight_multiplier,
                       "tar_a_weight_multiplier": self.tar_a_weight_multiplier,
                       "rewards_weights": self.reward_weight_dict,
