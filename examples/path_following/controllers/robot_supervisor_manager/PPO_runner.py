@@ -99,15 +99,17 @@ def run():
     reset_on_collisions = 500
     verbose = False
     manual_control = False
+    load_path = None
+    # load_path = "./experiments/" + experiment_name + f"/{experiment_name}_diff_4_agent.zip"
     ds_type = "sonar"
     max_ds_range = 100.0  # in cm
-    dist_sensors_threshold = 10
+    dist_sensors_threshold = 25.0
     add_action_to_obs = True
     window_latest_dense = 5  # Latest steps of observations
     window_older_diluted = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
-    tar_a_weight_multiplier = 0.0  # When obstacles are detected, target angle reward is multiplied by this
+    tar_a_weight_multiplier = 1.0  # When obstacles are detected, target angle reward is multiplied by this
     tar_dis_weight = 2.0
     tar_ang_weight = 2.0
     ds_weight = 1.0
@@ -126,8 +128,8 @@ def run():
                                   "min_target_dist": 4, "max_target_dist": 4},
                        "diff_4": {"type": "corridor", "number_of_obstacles": 8,
                                   "min_target_dist": 5, "max_target_dist": 5},
-                       "test_diff": {"type": "corridor", "number_of_obstacles": 10,
-                                     "min_target_dist": 6, "max_target_dist": 6}}
+                       "test_diff": {"type": "random", "number_of_obstacles": 25,
+                                     "min_target_dist": 5, "max_target_dist": 12}}
 
     if seed is not None:
         torch.manual_seed(seed)
@@ -150,42 +152,49 @@ def run():
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
 
     experiment_dir = f"./experiments/{experiment_name}"
-    if not os.path.exists(experiment_dir):
-        os.makedirs(experiment_dir)
-    env.export_parameters(experiment_dir + f"/{experiment_name}.json",
-                          net_arch, gamma, target_kl, vf_coef, ent_coef,
-                          difficulty_dict, maximum_episode_steps)
+    if load_path is None:
+        if not os.path.exists(experiment_dir):
+            os.makedirs(experiment_dir)
+        env.export_parameters(experiment_dir + f"/{experiment_name}.json",
+                              net_arch, gamma, target_kl, vf_coef, ent_coef,
+                              difficulty_dict, maximum_episode_steps)
 
     policy_kwargs = dict(activation_fn=torch.nn.ReLU, net_arch=net_arch)
     model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
                         n_steps=n_steps, batch_size=batch_size, gamma=gamma,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
                         verbose=1, tensorboard_log=experiment_dir)
-    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
-                                               current_difficulty=list(difficulty_dict.items())[0])
-    env.set_difficulty(difficulty_dict["diff_1"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
-    env.set_difficulty(difficulty_dict["diff_2"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
-    env.set_difficulty(difficulty_dict["diff_3"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
-    env.set_difficulty(difficulty_dict["diff_4"])
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
-    # model = MaskablePPO.load(experiment_dir + f"/{experiment_name}_diff_3_agent")
+    if load_path is None:
+        printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
+                                                   current_difficulty=list(difficulty_dict.items())[0])
+        env.set_difficulty(difficulty_dict["diff_1"])
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
+        env.set_difficulty(difficulty_dict["diff_2"])
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
+        env.set_difficulty(difficulty_dict["diff_3"])
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
+        env.set_difficulty(difficulty_dict["diff_4"])
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
+    if load_path is not None:
+        model = MaskablePPO.load(load_path)
     env.set_difficulty(difficulty_dict["test_diff"])
 
     obs = env.reset()
+    cumulative_rew = 0.0
     while True:
         action_masks = mask_fn(env)
-        action, _states = model.predict(obs, action_masks=action_masks)
+        action, _states = model.predict(obs, deterministic=False, action_masks=action_masks)
         obs, rewards, done, info = env.step(action)
+        cumulative_rew += rewards
         if done:
+            print(f"Episode reward: {cumulative_rew}")
             env.reset()
+            cumulative_rew = 0.0
