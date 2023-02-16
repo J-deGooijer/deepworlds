@@ -97,16 +97,16 @@ def run():
     experiment_name = "baseline"
     experiment_description = """Baseline description."""
     reset_on_collisions = 500
-    verbose = False
     manual_control = False
     load_path = None
     # load_path = "./experiments/" + experiment_name + f"/{experiment_name}_diff_4_agent.zip"
     ds_type = "sonar"
+    ds_noise = 0.0
     max_ds_range = 100.0  # in cm
     dist_sensors_threshold = 25.0
     add_action_to_obs = True
-    window_latest_dense = 5  # Latest steps of observations
-    window_older_diluted = 10  # How many latest seconds of observations
+    step_window = 5  # Latest steps of observations
+    seconds_window = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
     tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
     tar_a_weight_multiplier = 1.0  # When obstacles are detected, target angle reward is multiplied by this
@@ -135,13 +135,13 @@ def run():
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-    env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, window_latest_dense=window_latest_dense,
-                                                 window_older_diluted=window_older_diluted,
+    env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, step_window=step_window,
+                                                 seconds_window=seconds_window,
                                                  add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
-                                                 verbose=verbose,
                                                  on_target_threshold=on_tar_threshold,
                                                  dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
+                                                 ds_noise=ds_noise,
                                                  tar_d_weight_multiplier=tar_d_weight_multiplier,
                                                  tar_a_weight_multiplier=tar_a_weight_multiplier,
                                                  target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
@@ -184,7 +184,7 @@ def run():
                     reset_num_timesteps=False, callback=printing_callback)
         model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
     if load_path is not None:
-        model = MaskablePPO.load(load_path)
+        model = MaskablePPO.load(load_path)  # NOQA
     env.set_difficulty(difficulty_dict["test_diff"])
 
     obs = env.reset()
