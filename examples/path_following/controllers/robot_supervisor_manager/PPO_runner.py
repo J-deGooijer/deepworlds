@@ -123,8 +123,8 @@ def run():
     step_window = 5  # Latest steps of observations
     seconds_window = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
-    tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
-    tar_a_weight_multiplier = 1.0  # When obstacles are detected, target angle reward is multiplied by this
+    tar_d_weight_multiplier = 0.1  # When obstacles are detected, target distance reward is multiplied by this
+    tar_a_weight_multiplier = 0.1  # When obstacles are detected, target angle reward is multiplied by this
     tar_dis_weight = 2.0
     tar_ang_weight = 2.0
     ds_weight = 1.0
