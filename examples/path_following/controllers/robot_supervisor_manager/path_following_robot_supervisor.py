@@ -675,7 +675,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         elif action == 2:  # Decrease left wheel
             if self.motor_speeds[0] > -1.0:
                 self.motor_speeds[0] -= 0.25
-        elif action == 3:  # Decrease left wheel
+        elif action == 3:  # Decrease right wheel
             if self.motor_speeds[1] > -1.0:
                 self.motor_speeds[1] -= 0.25
         elif action == 4:  # No action
