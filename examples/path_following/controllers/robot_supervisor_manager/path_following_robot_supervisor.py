@@ -61,6 +61,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     :param seed: The random seed, defaults to None
     :type seed: int, optional
     """
+
     def __init__(self, description, step_window=1, seconds_window=0, add_action_to_obs=True,
                  max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
                  on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
@@ -236,7 +237,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.min_target_dist = 1
         self.max_target_dist = 1
 
-    def set_difficulty(self, difficulty_dict):
+        self.done_reason = ""  # Used to print the reason the episode is done while testing
+
+    def set_difficulty(self, difficulty_dict, key=None):
         """
         Sets the difficulty and corresponding variables with a difficulty dictionary provided.
 
@@ -244,12 +247,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             {"type": "t", "number_of_obstacles": X, "min_target_dist": Y, "max_target_dist": Z}, where type can be
             "random", "box" or "corridor".
         :type difficulty_dict: dict
+        :param key: The key of the difficulty dictionary, if provided, the method prints it along with the
+            difficulty dict, defaults to None
+        :type key: str, optional
         """
         self.current_difficulty = difficulty_dict
         self.number_of_obstacles = difficulty_dict["number_of_obstacles"]
         self.min_target_dist = difficulty_dict["min_target_dist"]
         self.max_target_dist = difficulty_dict["max_target_dist"]
-        print("Changed difficulty to:", difficulty_dict)
+        if key is not None:
+            print(f"Changed difficulty to: {key}, {difficulty_dict}")
+        else:
+            print("Changed difficulty to:", difficulty_dict)
 
     def get_action_mask(self):
         """
@@ -412,6 +421,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         if self.current_tar_d < self.on_target_threshold:
             reach_tar_reward = 1.0
             self.trigger_done = True  # Terminate episode
+            self.done_reason = "reached target"
 
         # Reward for distance sensors values
         dist_sensors_reward = 0
@@ -426,6 +436,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.collisions_counter += 1
             if self.collisions_counter >= self.reset_on_collisions - 1:
                 self.trigger_done = True
+                self.done_reason = "collision"
                 self.collisions_counter = 0
             collision_reward = -1.0
 
@@ -479,7 +490,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :rtype: bool
         """
         if self.trigger_done:
-            self.trigger_done = False
             return True
         return False
 
@@ -498,6 +508,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                           self.step_window)]
         self.observation_counter = self.observation_counter_limit
         # Reset path and various values
+        self.trigger_done = False
         self.path_to_target = None
         self.motor_speeds = [0.0, 0.0]
         self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
@@ -700,6 +711,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for path_node, starting_pos in zip(self.all_path_nodes, self.all_path_nodes_starting_positions):
             path_node.getField("translation").setSFVec3f(starting_pos)
             path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
+        for wall_node, starting_pos in zip(self.walls, self.walls_starting_positions):
+            wall_node.getField("translation").setSFVec3f(starting_pos)
+            wall_node.getField("rotation").setSFRotation([0, 0, 1, -1.5708])
 
     def randomize_map(self, type_="random", max_distance_allowed=2):
         """
@@ -802,11 +816,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             for row_coord in range(target_y + 1, robot_coordinates[1]):
                 self.map.add_cell(robot_coordinates[0] - 2, row_coord, self.walls[0])
                 self.map.add_cell(robot_coordinates[0] + 2, row_coord, self.walls[1])
-            new_position = self.walls_starting_positions[0]
-            new_position[0] = -0.75
+            new_position = [-0.75,
+                            self.walls_starting_positions[0][1],
+                            self.walls_starting_positions[0][2]]
             self.walls[0].getField("translation").setSFVec3f(new_position)
-            new_position = self.walls_starting_positions[1]
-            new_position[0] = 0.75
+            new_position = [0.75,
+                            self.walls_starting_positions[1][1],
+                            self.walls_starting_positions[1][2]]
             self.walls[1].getField("translation").setSFVec3f(new_position)
 
     def get_random_path(self, add_target=True):
@@ -843,6 +859,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: The minimum distance to the path and the corresponding closest point on the path
         :rtype: tuple
         """
+
         def dist_to_line_segm(p, l1, l2):
             v = l2 - l1
             w = p - l1
@@ -874,16 +891,22 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_info(self):
         """
-        Dummy implementation of get_info.
-        :return: Empty dict
+        Returns the reason the episode is done, used only while testing.
+
+        :return: Dictionary containing information
+        :rtype: dict
         """
-        return {}
+        if self.trigger_done:
+            return {"done_reason": self.done_reason}
+        else:
+            return {}
 
     def render(self, mode='human'):
         """
         Dummy implementation of render.
-        :param mode:
-        :return:
+
+        :param mode: defaults to 'human'
+        :type mode: str, optional
         """
         print("render() is not used")
 
