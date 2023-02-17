@@ -200,24 +200,41 @@ def run():
     tests_per_difficulty = 3
     deterministic = False
     print(f"Experiment name: {experiment_name}")
-    while True:
-        action_masks = mask_fn(env)
-        action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
-        obs, rewards, done, info = env.step(action)
-        cumulative_rew += rewards
-        if done:
-            try:
-                print(f"Episode reward: {cumulative_rew}, done reason: {info['done_reason']}")
-            except KeyError:
-                print(f"Episode reward: {cumulative_rew}, done reason: timeout")
-            cumulative_rew = 0.0
-            count += 1
-            if count == tests_per_difficulty:
-                diff_ind += 1
+    import csv
+    header = [experiment_name]
+    for i in range(len(test_difficulty)):
+        for j in range(tests_per_difficulty):
+            header.append(f"{test_difficulty[i]}")
+
+    episode_rewards = [""]
+    done_reasons = [""]
+    with open(experiment_dir + "/testing_results.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        while True:
+            action_masks = mask_fn(env)
+            action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
+            obs, rewards, done, info = env.step(action)
+            cumulative_rew += rewards
+            if done:
+                episode_rewards.append(cumulative_rew)
                 try:
-                    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], key=test_difficulty[diff_ind])
-                except IndexError:
-                    print("Testing complete.")
-                    break
-                count = 0
-            env.reset()
+                    print(f"Episode reward: {cumulative_rew}, done reason: {info['done_reason']}")
+                    done_reasons.append(info['done_reason'])
+                except KeyError:
+                    print(f"Episode reward: {cumulative_rew}, done reason: timeout")
+                    done_reasons.append("timeout")
+                cumulative_rew = 0.0
+                count += 1
+                if count == tests_per_difficulty:
+                    diff_ind += 1
+                    try:
+                        env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], key=test_difficulty[diff_ind])
+                    except IndexError:
+                        print("Testing complete.")
+                        break
+                    count = 0
+                env.reset()
+
+        writer.writerow(episode_rewards)
+        writer.writerow(done_reasons)
