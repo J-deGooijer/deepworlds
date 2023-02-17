@@ -86,6 +86,18 @@ def mask_fn(env):
 
 
 def run():
+    # Difficulty setup
+    difficulty_dict = {"diff_1": {"type": "corridor", "number_of_obstacles": 2,
+                                  "min_target_dist": 2, "max_target_dist": 2},
+                       "diff_2": {"type": "corridor", "number_of_obstacles": 4,
+                                  "min_target_dist": 3, "max_target_dist": 3},
+                       "diff_3": {"type": "corridor", "number_of_obstacles": 6,
+                                  "min_target_dist": 4, "max_target_dist": 4},
+                       "diff_4": {"type": "corridor", "number_of_obstacles": 8,
+                                  "min_target_dist": 5, "max_target_dist": 5},
+                       "test_diff": {"type": "random", "number_of_obstacles": 25,
+                                     "min_target_dist": 5, "max_target_dist": 12}}
+
     # Environment setup
     seed = 1
     total_timesteps = 2_560_000
@@ -102,6 +114,7 @@ def run():
     manual_control = False
     load_path = None
     # load_path = "./experiments/" + experiment_name + f"/{experiment_name}_diff_4_agent.zip"
+    test_difficulty = list(difficulty_dict.keys())
     ds_type = "sonar"
     ds_noise = 0.0
     max_ds_range = 100.0  # in cm
@@ -122,16 +135,6 @@ def run():
     # Map setup
     map_w, map_h = 7, 7
     cell_size = None
-    difficulty_dict = {"diff_1": {"type": "corridor", "number_of_obstacles": 2,
-                                  "min_target_dist": 2, "max_target_dist": 2},
-                       "diff_2": {"type": "corridor", "number_of_obstacles": 4,
-                                  "min_target_dist": 3, "max_target_dist": 3},
-                       "diff_3": {"type": "corridor", "number_of_obstacles": 6,
-                                  "min_target_dist": 4, "max_target_dist": 4},
-                       "diff_4": {"type": "corridor", "number_of_obstacles": 8,
-                                  "min_target_dist": 5, "max_target_dist": 5},
-                       "test_diff": {"type": "random", "number_of_obstacles": 25,
-                                     "min_target_dist": 5, "max_target_dist": 12}}
 
     if seed is not None:
         torch.manual_seed(seed)
@@ -187,16 +190,34 @@ def run():
         model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
     if load_path is not None:
         model = MaskablePPO.load(load_path)  # NOQA
-    env.set_difficulty(difficulty_dict["test_diff"])
+
+    diff_ind = 0
+    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], test_difficulty[diff_ind])
 
     obs = env.reset()
     cumulative_rew = 0.0
+    count = 0
+    tests_per_difficulty = 3
+    deterministic = False
+    print(f"Experiment name: {experiment_name}")
     while True:
         action_masks = mask_fn(env)
-        action, _states = model.predict(obs, deterministic=False, action_masks=action_masks)
+        action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
         obs, rewards, done, info = env.step(action)
         cumulative_rew += rewards
         if done:
-            print(f"Episode reward: {cumulative_rew}")
-            env.reset()
+            try:
+                print(f"Episode reward: {cumulative_rew}, done reason: {info['done_reason']}")
+            except KeyError:
+                print(f"Episode reward: {cumulative_rew}, done reason: timeout")
             cumulative_rew = 0.0
+            count += 1
+            if count == tests_per_difficulty:
+                diff_ind += 1
+                try:
+                    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], key=test_difficulty[diff_ind])
+                except IndexError:
+                    print("Testing complete.")
+                    break
+                count = 0
+            env.reset()
