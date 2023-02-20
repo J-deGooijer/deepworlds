@@ -46,6 +46,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     :type tar_angle_weight: float, optional
     :param dist_sensors_weight: The distance sensors reward weight, defaults to 1.0
     :type dist_sensors_weight: float, optional
+    :param obs_turning_weight: The obstacle turning weight, defaults to 1.0
+    :type obs_turning_weight: float, optional
     :param tar_reach_weight: The target reach reward weight, defaults to 1.0
     :type tar_reach_weight: float, optional
     :param collision_weight: The collision reward weight, defaults to 1.0
@@ -66,7 +68,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                  max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
                  on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
                  tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
-                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
+                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0, obs_turning_weight=1.0,
                  tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
         super().__init__()
@@ -136,9 +138,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Set up sensors
         self.distance_sensors = []
         self.ds_max = []
+        # self.ds_min = []
         self.dist_sensors_threshold = dist_sensors_threshold
         self.ds_type = ds_type
         self.ds_noise = ds_noise
+        # self.ds_nodes = []
         # Loop through the ds_group node to set max sensor values and initialize the devices and set the type
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
@@ -151,7 +155,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     ds_node = ds_group.getMFNode(i)
                     ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range / 100.0, max_ds_range, self.ds_noise])
                     ds_node.getField("type").setSFString(self.ds_type)
+                    # self.ds_nodes.append(ds_node)
                     self.ds_max.append(max_ds_range)  # NOQA
+                    # self.ds_min.append(ds_node.getField("lookupTable").getMFVec3f(0)[0] * 100)  # NOQA
 
         # Touch sensor is used to determine when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
@@ -175,11 +181,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        # self.current_virtual_angles = []
 
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
-                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
-                                   "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
+                                   "dist_sensors": dist_sensors_weight, "obs_turning_reward": obs_turning_weight,
+                                   "tar_reach": tar_reach_weight, "collision": collision_weight,
+                                   "time_penalty_weight": time_penalty_weight}
         self.tar_d_weight_multiplier = tar_d_weight_multiplier
         self.tar_a_weight_multiplier = tar_a_weight_multiplier
         self.sum_normed_reward = 0.0  # Used as a metric
@@ -222,6 +230,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             child = self.getFromDef("PATH").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_path_nodes.append(child)
             self.all_path_nodes_starting_positions.append(child.getField("translation").getSFVec3f())
+
+        # # Obstacle marker node references and starting positions used to reset them
+        # self.obstacle_marker_nodes = []
+        # self.obstacle_marker_nodes_starting_positions = []
+        # for childNodeIndex in range(self.getFromDef("OBSTACLE_MARKERS").getField("children").getCount()):
+        #     child = self.getFromDef("OBSTACLE_MARKERS").getField("children").getMFNode(childNodeIndex)  # NOQA
+        #     self.obstacle_marker_nodes.append(child)
+        #     self.obstacle_marker_nodes_starting_positions.append(child.getField("translation").getSFVec3f()[0:2])
+        #     self.obstacle_marker_nodes_starting_positions[-1].append(0.05)
 
         self.current_difficulty = {}
         self.number_of_obstacles = 0  # The number of obstacles to use, set from set_difficulty method
@@ -395,6 +412,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         becomes 1.0, and reset is triggered (done)
         - Distance sensors reward is 0.0, unless even one of the distance sensors reads a value below the distance
         sensor threshold when it becomes -1.0
+        - Obstacle turning reward penalizes ds values getting smaller. For each sensor value changing, a negative reward
+        is assigned for decreasing, a positive reward is assigned for increasing. The reward itself is [-1.0, 1.0] for
+        each sensor. The final reward is the average reward across all sensors.
         - Collision reward is 0.0, unless the touch sensor detects a collision when it becomes -1.0. It also counts
         the number of collisions and triggers a reset (done) when the set limit reset_on_collisions is reached
         - Time penalty is simply -1.0 for each step
@@ -429,12 +449,28 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.trigger_done = True  # Terminate episode
             self.done_reason = "reached target"
 
-        # Reward for distance sensors values
+        # Penalty for distance sensors values
         dist_sensors_reward = 0
         for i in range(len(self.distance_sensors)):
             if self.current_dist_sensors[i] < self.dist_sensors_threshold:
                 dist_sensors_reward = -1.0  # If any sensor is under threshold assign penalty
                 break
+
+        # Penalty for turning towards obstacles, by penalizing decreasing ds values
+        obs_turning_rewards = []
+        for i in range(len(self.distance_sensors)):
+            if self.current_dist_sensors[i] - self.previous_dist_sensors[i] > 0.001:
+                # Increasing ds value, obstacle moving away
+                obs_turning_rewards.append(normalize_to_range(self.current_dist_sensors[i],
+                                                              0.0, self.ds_max[i], 1.0, 0.0))
+            elif self.current_dist_sensors[i] - self.previous_dist_sensors[i] < -0.001:
+                # Decreasing ds value, obstacle moving closer
+                obs_turning_rewards.append(-normalize_to_range(self.current_dist_sensors[i],
+                                                               0.0, self.ds_max[i], 1.0, 0.0))
+        if len(obs_turning_rewards) == 0:
+            obs_turning_reward = 0
+        else:
+            obs_turning_reward = np.mean(obs_turning_rewards)
 
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
@@ -454,6 +490,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_dist_tar_reward = self.reward_weight_dict["dist_tar"] * dist_tar_reward
         weighted_ang_tar_reward = self.reward_weight_dict["ang_tar"] * ang_tar_reward
         weighted_dist_sensors_reward = self.reward_weight_dict["dist_sensors"] * dist_sensors_reward
+        weighted_obs_turning_reward = self.reward_weight_dict["obs_turning_reward"] * obs_turning_reward
         weighted_reach_tar_reward = self.reward_weight_dict["tar_reach"] * reach_tar_reward
         weighted_collision_reward = self.reward_weight_dict["collision"] * collision_reward
         weighted_time_penalty = self.reward_weight_dict["time_penalty_weight"] * time_penalty
@@ -470,13 +507,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.sum_normed_reward += (weights_normed["dist_tar"] * dist_tar_reward +
                                    weights_normed["ang_tar"] * ang_tar_reward +
                                    weights_normed["dist_sensors"] * dist_sensors_reward +
+                                   weights_normed["obs_turning_reward"] * obs_turning_reward +
                                    weights_normed["tar_reach"] * collision_reward +
                                    weights_normed["collision"] * reach_tar_reward +
                                    weights_normed["time_penalty_weight"] * time_penalty)
 
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
-                  weighted_collision_reward + weighted_reach_tar_reward + weighted_time_penalty)
+                  weighted_obs_turning_reward + weighted_collision_reward + weighted_reach_tar_reward +
+                  weighted_time_penalty)
 
         if self.just_reset:
             self.just_reset = False
@@ -507,7 +546,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         Then it creates the new obstacle map depending on difficulty, and resets the viewpoint.
         """
         self.simulationResetPhysics()
-        super(Supervisor, self).step(int(self.getBasicTimeStep()))
+        super(Supervisor, self).step(int(self.getBasicTimeStep()))  # NOQA
         self.obs_list = self.get_default_observation()
         self.obs_memory = [[0.0 for _ in range(self.single_obs_size)]
                            for _ in range((self.seconds_window * int(np.ceil(1000 / self.timestep))) +
@@ -524,6 +563,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        # self.current_virtual_angles = []
         self.collisions_counter = 0
 
         # Set robot random rotation
@@ -594,6 +634,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_d = self.current_tar_d
         self.previous_tar_a = self.current_tar_a
         self.previous_dist_sensors = self.current_dist_sensors
+        # self.update_virtual_angles()
 
         # Target distance and angle
         self.current_tar_d = get_distance_from_target(self.robot, self.target)
@@ -603,6 +644,71 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
         for ds in self.distance_sensors:
             self.current_dist_sensors.append(ds.getValue())  # NOQA
+
+    # def update_virtual_angles(self):
+    #
+    #     # Grab all current ds observations to create virtual targets
+    #     ds_obs = [0.0 for _ in range(self.number_of_distance_sensors * (self.step_window + self.seconds_window))]
+    #     skip = 6 + self.action_space.n
+    #     skip_count = 0
+    #     ds_count = 0
+    #     ds_obs_ind = 0
+    #     for i in range(len(self.obs_list)):
+    #         if skip_count < skip:
+    #             skip_count += 1
+    #             ds_count = 0
+    #         elif ds_count < self.number_of_distance_sensors:
+    #             # Grab ds value and convert it back to raw sensor value
+    #             ds_obs[ds_obs_ind] = normalize_to_range(self.obs_list[i], 1.0, 0.0, 0.0, self.ds_max[0])
+    #             ds_obs_ind += 1
+    #             ds_count += 1
+    #             if ds_count >= self.number_of_distance_sensors:
+    #                 ds_count = 0
+    #                 skip_count = 0
+    #
+    #     # Create the virtual targets
+    #     def rotate(origin, point, angle):
+    #         """
+    #         Rotate a point counterclockwise by a given angle around a given origin.
+    #
+    #         The angle should be given in radians.
+    #         """
+    #         ox, oy = origin
+    #         px, py = point
+    #
+    #         qx = ox + np.cos(angle) * (px - ox) - np.sin(angle) * (py - oy)
+    #         qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
+    #         return [qx, qy]
+    #
+    #     robot_coordinates = np.round(self.ds_nodes[0].getPosition()[0:2], 4)
+    #     sensor_angles = [(np.pi / 2) - ((np.pi / 2) / 6) * i for i in range(self.number_of_distance_sensors)]
+    #     sa_index = self.number_of_distance_sensors - 1
+    #     robot_angle = (self.robot.getField('rotation').getSFRotation()[3] *
+    #                    np.sign(self.robot.getField('rotation').getSFRotation()[2]))
+    #     self.current_virtual_angles = []
+    #     for i in range(len(ds_obs)):
+    #         if ds_obs[i] < self.ds_max[sa_index]:
+    #             sensor_multiplier = ds_obs[i] / (self.ds_max[sa_index] + self.ds_min[sa_index])
+    #             unit_vector = np.array([np.sin(sensor_angles[sa_index]), -np.cos(sensor_angles[sa_index])])
+    #             real_vector = unit_vector * sensor_multiplier
+    #             real_vector = real_vector + (unit_vector * (self.ds_min[sa_index] / 100))
+    #             rob_unit_vector = [robot_coordinates[0] - real_vector[0], robot_coordinates[1] + real_vector[1]]
+    #             rob_unit_vector = rotate(robot_coordinates, rob_unit_vector, robot_angle + np.pi / 2)
+    #             self.obstacle_marker_nodes[sa_index].getField("translation"). \
+    #                 setSFVec3f([rob_unit_vector[0],
+    #                             rob_unit_vector[1],
+    #                             self.obstacle_marker_nodes_starting_positions[sa_index][2]])
+    #             self.current_virtual_angles.append(np.rad2deg(get_angle_from_target(self.robot, rob_unit_vector,
+    #                                                                                 node_mode=False, is_abs=True)))
+    #         else:
+    #             self.obstacle_marker_nodes[sa_index].getField("translation"). \
+    #                 setSFVec3f([self.obstacle_marker_nodes_starting_positions[sa_index][0],
+    #                             self.obstacle_marker_nodes_starting_positions[sa_index][1],
+    #                             self.obstacle_marker_nodes_starting_positions[sa_index][2]])
+    #
+    #         sa_index -= 1
+    #         if sa_index < 0:
+    #             sa_index = self.number_of_distance_sensors - 1
 
     def step(self, action):
         """
@@ -617,7 +723,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         """
         action = self.apply_action(action)
 
-        if super(Supervisor, self).step(self.timestep) == -1:
+        if super(Supervisor, self).step(self.timestep) == -1:  # NOQA
             exit()
 
         self.update_current_metrics()
@@ -717,6 +823,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for path_node, starting_pos in zip(self.all_path_nodes, self.all_path_nodes_starting_positions):
             path_node.getField("translation").setSFVec3f(starting_pos)
             path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
+        # for ob_mar_node, starting_pos in zip(self.obstacle_marker_nodes, self.obstacle_marker_nodes_starting_positions):
+        #     ob_mar_node.getField("translation").setSFVec3f(starting_pos)
+        #     ob_mar_node.getField("rotation").setSFRotation([0, 0, 1, 0])
         for wall_node, starting_pos in zip(self.walls, self.walls_starting_positions):
             wall_node.getField("translation").setSFVec3f(starting_pos)
             wall_node.getField("rotation").setSFRotation([0, 0, 1, -1.5708])
