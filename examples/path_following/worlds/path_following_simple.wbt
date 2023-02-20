@@ -12,7 +12,7 @@ WorldInfo {
 }
 DEF VIEWPOINT Viewpoint {
   orientation -0.3682704789275701 0.3694864239521324 0.8531451440789682 1.7257023229480546
-  position 0.052798774577807 -7.139126487952688 7.562526589444358
+  position 0.2995130784750888 -8.461049842834447 8.890393455339025
   follow "robot"
 }
 TexturedBackground {
@@ -88,8 +88,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -1.8270058160960207e-29 0.06 1.3969099999999822e-17
-        rotation 1 4.476893151766437e-09 -4.476898809310016e-09 1.5707999999993825
+        translation -1.8270895430321854e-29 0.06 1.396909999999984e-17
+        rotation 1 4.476893181867231e-09 -4.476898755684702e-09 1.570799999999382
         children [
           DEF WHEEL Shape {
             appearance PBRAppearance {
@@ -120,8 +120,8 @@ DEF ROBOT Robot {
         }
       ]
       endPoint Solid {
-        translation -2.968416526856869e-28 -0.06 4.5013100000000055e-17
-        rotation 1 -1.218209325906889e-09 1.218191697960843e-09 1.5707999999994025
+        translation -2.968415103064718e-28 -0.06 4.501310000000006e-17
+        rotation 1 -1.2182091166745793e-09 1.2181917671851006e-09 1.5707999999994025
         children [
           USE WHEEL
         ]
@@ -818,6 +818,179 @@ DEF PATH Group {
         }
       ]
       name "p(15)"
+    }
+  ]
+}
+DEF OBSTACLE_MARKERS Group {
+  children [
+    DEF marker0 Solid {
+      translation 5.18 -0.18 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker"
+    }
+    DEF marker1 Solid {
+      translation 5.18 -0.12 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(1)"
+    }
+    DEF marker2 Solid {
+      translation 5.18 -0.07 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(2)"
+    }
+    DEF marker3 Solid {
+      translation 5.18 -0.02 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(3)"
+    }
+    DEF marker4 Solid {
+      translation 5.18 0.03 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(4)"
+    }
+    DEF marker5 Solid {
+      translation 5.18 0.08 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(5)"
+    }
+    DEF marker6 Solid {
+      translation 5.18 0.13 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(6)"
+    }
+    DEF marker7 Solid {
+      translation 5.18 0.18 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(7)"
+    }
+    DEF marker8 Solid {
+      translation 5.18 0.24 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(8)"
+    }
+    DEF marker9 Solid {
+      translation 5.18 0.3 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(9)"
+    }
+    DEF marker10 Solid {
+      translation 5.18 0.36 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(10)"
+    }
+    DEF marker11 Solid {
+      translation 5.18 0.42 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(11)"
+    }
+    DEF marker12 Solid {
+      translation 5.18 0.47 0.24
+      children [
+        Shape {
+          appearance PBRAppearance {
+          }
+          geometry Box {
+            size 0.025 0.025 0.025
+          }
+        }
+      ]
+      name "marker(12)"
     }
   ]
 }
