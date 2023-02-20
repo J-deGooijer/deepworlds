@@ -103,6 +103,8 @@ def get_angle_from_target(robot_node, target, node_mode=True, is_abs=False):
 
     x_r = (target_coordinate[0] - robot_coordinates[0])
     y_r = (target_coordinate[1] - robot_coordinates[1])
+    if x_r == 0 and y_r == 0:
+        return 0.0
 
     angle_dif = math.atan2(y_r, x_r)
     angle_dif = angle_dif - robot_angle
