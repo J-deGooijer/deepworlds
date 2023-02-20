@@ -130,6 +130,7 @@ def run():
     tar_dis_weight = 2.0
     tar_ang_weight = 2.0
     ds_weight = 1.0
+    obs_turning_weight = 0.0
     tar_reach_weight = 1000.0
     col_weight = 5.0
     time_penalty_weight = 0.1
@@ -152,8 +153,9 @@ def run():
                                                  tar_d_weight_multiplier=tar_d_weight_multiplier,
                                                  tar_a_weight_multiplier=tar_a_weight_multiplier,
                                                  target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
-                                                 dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
-                                                 collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
+                                                 dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
+                                                 tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
+                                                 time_penalty_weight=time_penalty_weight,
                                                  map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                     maximum_episode_steps)
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
