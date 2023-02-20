@@ -331,14 +331,18 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :return: Observation list
         :rtype: list
         """
+        if self.just_reset:
+            self.previous_tar_d = self.current_tar_d
+            self.previous_tar_a = self.current_tar_a
         # Add distance, angle, distance change, angle change
         obs = [normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
-               normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.0013, 0.0013, -1.0, 1.0,
-                                  clip=True),
-               normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                  clip=True),
+               round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.00128, 0.00128, -1.0, 1.0,
+                                        clip=True), 4),
+               round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
+                                        clip=True), 4),
                self.motor_speeds[0], self.motor_speeds[1]]
+
         if self.add_action_to_obs:
             # Add action one-hot
             action_one_hot = [0.0 for _ in range(self.action_space.n)]
@@ -406,6 +410,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for decreasing distance to the target
         if self.just_reset:
             self.previous_tar_d = self.current_tar_d
+            self.previous_tar_a = self.current_tar_a
+
         dist_tar_reward = normalize_to_range(self.previous_tar_d - self.current_tar_d,
                                              -0.0013, 0.0013, -1.0, 1.0, clip=True)
 
