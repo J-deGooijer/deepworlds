@@ -43,7 +43,7 @@ class AdditionalInfoCallback(BaseCallback):
         This method is called before the first rollout starts.
         """
         self.logger.record("experiment_name", self.experiment_name)
-        self.logger.record("difficulty", self.current_difficulty[0])
+        self.logger.record("difficulty", self.current_difficulty)
 
     def _on_rollout_start(self) -> None:
         """
@@ -68,8 +68,17 @@ class AdditionalInfoCallback(BaseCallback):
         """
         This event is triggered before updating the policy.
         """
-        self.logger.record("experiment_name", self.experiment_name)
-        self.logger.record("difficulty", self.current_difficulty[0])
+        self.logger.record("general/experiment_name", self.experiment_name)
+        self.logger.record("general/difficulty", self.current_difficulty)
+        self.logger.record("resets/reset count", self.env.reset_count)
+        self.logger.record("resets/reach target count", self.env.reach_target_count)
+        self.logger.record("resets/collision termination count", self.env.collision_termination_count)
+        self.logger.record("resets/timeout count", self.env.timeout_count)
+        if self.env.reach_target_count == 0 or self.env.reset_count == 0:
+            self.logger.record("resets/success percentage", 0.0)
+        else:
+            self.logger.record("resets/success percentage", self.env.reach_target_count / self.env.reset_count)
+
         normed_reward = self.env.sum_normed_reward / self.model.n_steps  # NOQA
         self.logger.record("rollout/normalized reward", normed_reward)
         self.env.reset_sum_reward()
@@ -95,45 +104,53 @@ def run():
                                   "min_target_dist": 4, "max_target_dist": 4},
                        "diff_4": {"type": "corridor", "number_of_obstacles": 8,
                                   "min_target_dist": 5, "max_target_dist": 5},
-                       "test_diff": {"type": "random", "number_of_obstacles": 25,
-                                     "min_target_dist": 5, "max_target_dist": 12}}
+                       "random_diff": {"type": "random", "number_of_obstacles": 25,
+                                       "min_target_dist": 5, "max_target_dist": 12}}
+    test_difficulty = list(difficulty_dict.keys())
+    deterministic = False  # Whether action is deterministic when testing
+    manual_control = False
 
     # Environment setup
     seed = 1
-    total_timesteps = 2_560_000
-    n_steps = 5_120  # Number of steps between training, effectively the size of the buffer to train on
-    batch_size = 128
-    maximum_episode_steps = 25_600
-    gamma = 0.995
-    target_kl = 0.5
+
+    n_steps = 32_786  # Number of steps between training, effectively the size of the buffer to train on
+    batch_size = 2048
+    maximum_episode_steps = 8_192  # Minimum 4 (8192*4=32768) full episodes per training step
+    total_timesteps = 524_288  # Minimum 64 (8192*64=524288) episodes' worth of timesteps per difficulty
+
+    gamma = 0.99
+    gae_lambda = 0.95
+    target_kl = None
     vf_coef = 0.5
-    ent_coef = 0.01
-    experiment_name = "baseline"
-    experiment_dir = f"./experiments/{experiment_name}"
+    ent_coef = 0.001
+
+    experiment_name = "Baseline"
     experiment_description = """Baseline description."""
-    reset_on_collisions = 500
-    deterministic = False  # Whether action is deterministic when testing
-    manual_control = False
+    experiment_dir = f"./experiments/{experiment_name}"
     load_path = None
-    # load_path = "./experiments/" + experiment_name + f"/{experiment_name}_diff_4_agent.zip"
-    test_difficulty = list(difficulty_dict.keys())
+    # load_path = experiment_dir + f"/{experiment_name}_diff_4_agent.zip"
+
+    step_window = 1  # Latest steps of observations
+    seconds_window = 0  # How many latest seconds of observations
+    add_action_to_obs = True
+    reset_on_collisions = 4096  # Allow at least two training steps
     ds_type = "sonar"
     ds_noise = 0.0
     max_ds_range = 100.0  # in cm
     dist_sensors_threshold = 25.0
-    add_action_to_obs = True
-    step_window = 5  # Latest steps of observations
-    seconds_window = 10  # How many latest seconds of observations
     on_tar_threshold = 0.1
-    tar_d_weight_multiplier = 0.1  # When obstacles are detected, target distance reward is multiplied by this
-    tar_a_weight_multiplier = 0.1  # When obstacles are detected, target angle reward is multiplied by this
+
+    tar_d_weight_multiplier = 1.0  # When obstacles are detected, target distance reward is multiplied by this
+    tar_a_weight_multiplier = 0.0  # When obstacles are detected, target angle reward is multiplied by this
     tar_dis_weight = 2.0
     tar_ang_weight = 2.0
     ds_weight = 1.0
     obs_turning_weight = 0.0
     tar_reach_weight = 1000.0
+    not_reach_weight = 1000.0
     col_weight = 5.0
     time_penalty_weight = 0.1
+
     net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
     map_w, map_h = 7, 7
@@ -143,7 +160,7 @@ def run():
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-    env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, step_window=step_window,
+    env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
                                                  seconds_window=seconds_window,
                                                  add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
                                                  reset_on_collisions=reset_on_collisions, manual_control=manual_control,
@@ -156,6 +173,7 @@ def run():
                                                  dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
                                                  tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
                                                  time_penalty_weight=time_penalty_weight,
+                                                 not_reach_weight=not_reach_weight,
                                                  map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                     maximum_episode_steps)
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
@@ -164,30 +182,34 @@ def run():
         if not os.path.exists(experiment_dir):
             os.makedirs(experiment_dir)
         env.export_parameters(experiment_dir + f"/{experiment_name}.json",
-                              net_arch, gamma, target_kl, vf_coef, ent_coef,
-                              difficulty_dict, maximum_episode_steps)
+                              net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
+                              difficulty_dict, maximum_episode_steps, n_steps, batch_size)
 
     policy_kwargs = dict(activation_fn=torch.nn.ReLU, net_arch=net_arch)
     model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
-                        n_steps=n_steps, batch_size=batch_size, gamma=gamma,
+                        n_steps=n_steps, batch_size=batch_size, gamma=gamma, gae_lambda=gae_lambda,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
                         verbose=1, tensorboard_log=experiment_dir)
     if load_path is None:
         printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
-                                                   current_difficulty=list(difficulty_dict.items())[0])
+                                                   current_difficulty="diff_1")
         env.set_difficulty(difficulty_dict["diff_1"])
+        printing_callback.current_difficulty = "diff_1"
         model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
                     reset_num_timesteps=False, callback=printing_callback)
         model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
         env.set_difficulty(difficulty_dict["diff_2"])
+        printing_callback.current_difficulty = "diff_2"
         model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
                     reset_num_timesteps=False, callback=printing_callback)
         model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
         env.set_difficulty(difficulty_dict["diff_3"])
+        printing_callback.current_difficulty = "diff_3"
         model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
                     reset_num_timesteps=False, callback=printing_callback)
         model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
         env.set_difficulty(difficulty_dict["diff_4"])
+        printing_callback.current_difficulty = "diff_4"
         model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
                     reset_num_timesteps=False, callback=printing_callback)
         model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
