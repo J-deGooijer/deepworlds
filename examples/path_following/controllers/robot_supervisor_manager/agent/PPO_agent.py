@@ -210,6 +210,69 @@ class PPOAgent:
         del self.buffer[:]
 
 
+# class Actor(nn.Module):
+#     def __init__(self, num_of_inputs, num_of_outputs):
+#         super(Actor, self).__init__()
+#         self.conv1 = nn.Conv1d(num_of_inputs, 32, kernel_size=8, stride=4)
+#         self.conv2 = nn.Conv1d(32, 64, kernel_size=4, stride=2)
+#         self.conv3 = nn.Conv1d(64, 128, kernel_size=3, stride=1)
+#         self.fc1 = nn.Linear(128 * 3, 512)
+#         self.action_head = nn.Linear(512, num_of_outputs)
+#
+#     def forward(self, x):
+#         x = x.unsqueeze(1)  # add a channel dimension
+#         x = F.relu(self.conv1(x))
+#         x = F.relu(self.conv2(x))
+#         x = F.relu(self.conv3(x))
+#         x = x.view(x.size(0), -1)
+#         x = F.relu(self.fc1(x))
+#         action_prob = F.softmax(self.action_head(x), dim=1)
+#         return action_prob
+#
+#     def get_size(self, x):
+#         # layer_sizes = [list(x.size())[1]]
+#         # x = F.relu(self.fc1(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # x = F.relu(self.fc2(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # x = F.relu(self.fc3(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # action_prob = F.softmax(self.action_head(x), dim=1)
+#         # layer_sizes.append(list(action_prob.size())[1])
+#         return []
+#
+#
+# class Critic(nn.Module):
+#     def __init__(self, num_of_inputs):
+#         super(Critic, self).__init__()
+#         self.conv1 = nn.Conv1d(num_of_inputs, 64, kernel_size=8, stride=4)
+#         self.conv2 = nn.Conv1d(64, 128, kernel_size=6, stride=3)
+#         self.conv3 = nn.Conv1d(128, 256, kernel_size=4, stride=2)
+#         self.conv4 = nn.Conv1d(256, 512, kernel_size=3, stride=1)
+#         self.fc = nn.Linear(512, 1)
+#
+#     def forward(self, x):
+#         x = F.relu(self.conv1(x))
+#         x = F.relu(self.conv2(x))
+#         x = F.relu(self.conv3(x))
+#         x = F.relu(self.conv4(x))
+#         x = x.view(x.size(0), -1)  # flatten output from conv layers
+#         value = self.fc(x)
+#         return value
+#
+#     def get_size(self, x):
+#         # layer_sizes = [list(x.size())[1]]
+#         # x = F.relu(self.fc1(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # x = F.relu(self.fc2(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # x = F.relu(self.fc3(x))
+#         # layer_sizes.append(list(x.size())[1])
+#         # value = self.state_value(x)
+#         # layer_sizes.append(list(value.size())[1])
+#         return []
+
+
 class Actor(nn.Module):
     def __init__(self, num_of_inputs, num_of_outputs):
         super(Actor, self).__init__()
