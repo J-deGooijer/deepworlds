@@ -94,7 +94,7 @@ def mask_fn(env):
     return env.get_action_mask()
 
 
-def run():
+def run(experiment_name):
     # Difficulty setup
     difficulty_dict = {"diff_1": {"type": "corridor", "number_of_obstacles": 2,
                                   "min_target_dist": 2, "max_target_dist": 2},
@@ -113,8 +113,8 @@ def run():
 
     n_steps = 32_786  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 2048
-    maximum_episode_steps = 8_192  # Minimum 4 (8192*4=32768) full episodes per training step
-    total_timesteps = 524_288  # Minimum 64 (8192*64=524288) episodes' worth of timesteps per difficulty
+    maximum_episode_steps = 16_384  # Minimum 2 (16384*2=32768) full episodes per training step
+    total_timesteps = 524_288  # Minimum 32 (16384*32=524288) episodes' worth of timesteps per difficulty
 
     gamma = 0.99
     gae_lambda = 0.95
@@ -122,7 +122,6 @@ def run():
     vf_coef = 0.5
     ent_coef = 0.001
 
-    experiment_name = "Baseline"
     experiment_description = """Baseline description."""
     experiment_dir = f"./experiments/{experiment_name}"
 
@@ -156,22 +155,21 @@ def run():
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-    env = TimeLimit(PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
-                                                 seconds_window=seconds_window,
-                                                 add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
-                                                 reset_on_collisions=reset_on_collisions, manual_control=manual_control,
-                                                 on_target_threshold=on_tar_threshold,
-                                                 dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
-                                                 ds_noise=ds_noise,
-                                                 tar_d_weight_multiplier=tar_d_weight_multiplier,
-                                                 tar_a_weight_multiplier=tar_a_weight_multiplier,
-                                                 target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
-                                                 dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
-                                                 tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
-                                                 time_penalty_weight=time_penalty_weight,
-                                                 not_reach_weight=not_reach_weight,
-                                                 map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
-                    maximum_episode_steps)
+    env = PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
+                                       seconds_window=seconds_window,
+                                       add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
+                                       reset_on_collisions=reset_on_collisions, manual_control=manual_control,
+                                       on_target_threshold=on_tar_threshold,
+                                       dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
+                                       ds_noise=ds_noise,
+                                       tar_d_weight_multiplier=tar_d_weight_multiplier,
+                                       tar_a_weight_multiplier=tar_a_weight_multiplier,
+                                       target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
+                                       dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
+                                       tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
+                                       time_penalty_weight=time_penalty_weight,
+                                       not_reach_weight=not_reach_weight,
+                                       map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed)
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
 
     if not os.path.exists(experiment_dir):
@@ -213,11 +211,10 @@ def run():
                 reset_num_timesteps=False, callback=printing_callback)
     model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
     # Random map training session
-    env._max_episode_steps *= 2  # NOQA
-    env.maximum_episode_steps = env._max_episode_steps  # NOQA
     env.set_difficulty(difficulty_dict["random_diff"])
     printing_callback.current_difficulty = "random_diff"
     model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_5",
                 reset_num_timesteps=False, callback=printing_callback)
     model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
-    print("Training finished.")
+    print("################### TRAINING FINISHED ###################")
+    return env
