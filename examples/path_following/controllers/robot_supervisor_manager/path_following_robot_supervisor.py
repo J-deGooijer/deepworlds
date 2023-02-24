@@ -251,11 +251,11 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         self.current_timestep = 0
         self.maximum_episode_steps = maximum_episode_steps
-        self.done_reason = "timeout"  # Used to print the reason the episode is done while testing
+        self.done_reason = ""  # Used to print the reason the episode is done while testing
         self.reset_count = -1
         self.reach_target_count = 0
         self.collision_termination_count = 0
-        self.timeout_count = -1
+        self.timeout_count = 0
         self.initial_target_distance = 0.0
         self.min_distance_reached = float("inf")
 
@@ -499,7 +499,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         not_reach_reward = 0.0
         if self.current_timestep == self.maximum_episode_steps - 1:
             not_reach_reward = normalize_to_range(get_distance_from_target(self.robot, self.target),
-                                                  0.0, 1.0, 0.0, -1.0)
+                                                  0.0, self.initial_target_distance, 0.0, -1.0)
 
         ################################################################################################################
         # Total reward calculation
@@ -635,14 +635,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.viewpoint.getField("position").setSFVec3f(self.viewpoint_position)
         self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
         self.reset_count += 1
-        print("Resetting, done reason:", self.done_reason)
+        if self.done_reason != "":
+            print("Resetting, done reason:", self.done_reason)
         if self.done_reason == "collision":
             self.collision_termination_count += 1
         elif self.done_reason == "reached target":
             self.reach_target_count += 1
         elif self.done_reason == "timeout":
             self.timeout_count += 1
-        self.done_reason = "timeout"
+        self.done_reason = ""
         self.initial_target_distance = get_distance_from_target(self.robot, self.target)
         self.min_distance_reached = float("inf")
         return self.obs_list
@@ -763,12 +764,20 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         done = self.is_done()
         info = self.get_info()
         self.current_timestep += 1
+        # Timeout
+        if self.current_timestep >= self.maximum_episode_steps:
+            done = True
+            self.done_reason = "timeout"
+            info = {"done_reason": self.done_reason}
         return (
             obs,
             rew,
             done,
             info
         )
+
+    def set_maximum_episode_steps(self, new_value):
+        self.maximum_episode_steps = new_value
 
     def apply_action(self, action):
         """
