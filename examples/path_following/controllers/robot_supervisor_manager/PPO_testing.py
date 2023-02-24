@@ -1,8 +1,6 @@
-import os
 import numpy as np
 import torch
 from gym.wrappers import TimeLimit
-from stable_baselines3.common.callbacks import BaseCallback
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib import MaskablePPO
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
@@ -33,12 +31,12 @@ def run():
 
     maximum_episode_steps = 32_786
 
-    experiment_name = "baseline_2048_win_5"
+    experiment_name = "baseline"
     experiment_description = """Baseline description."""
-    experiment_dir = f"./experiments/round_6/{experiment_name}"
-    load_path = experiment_dir + f"/{experiment_name}_diff_4_agent.zip"
+    experiment_dir = f"./experiments/{experiment_name}"
+    load_path = experiment_dir + f"/{experiment_name}_diff_5_agent.zip"
 
-    step_window = 5  # Latest steps of observations
+    step_window = 1  # Latest steps of observations
     seconds_window = 0  # How many latest seconds of observations
     add_action_to_obs = True
     reset_on_collisions = 4096  # Allow at least two training steps
@@ -59,7 +57,6 @@ def run():
     col_weight = 5.0
     time_penalty_weight = 0.1
 
-    net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
     map_w, map_h = 7, 7
     cell_size = None
