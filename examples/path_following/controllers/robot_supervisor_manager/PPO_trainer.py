@@ -1,11 +1,89 @@
 import os
+from typing import Callable, Tuple
 import numpy as np
 import torch
-from gym.wrappers import TimeLimit
+
+from gym import spaces
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.logger import HParam
+from sb3_contrib.ppo_mask.policies import MaskableActorCriticPolicy
+from sb3_contrib.common.maskable.evaluation import evaluate_policy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib import MaskablePPO
+
 from path_following_robot_supervisor import PathFollowingRobotSupervisor
+
+
+class CustomNetwork(torch.nn.Module):
+    """
+    Custom network for policy and value function.
+    It receives as input the features extracted by the features extractor.
+
+    :param feature_dim: dimension of the features extracted with the features_extractor (e.g. features from a CNN)
+    :param last_layer_dim_pi: (int) number of units for the last layer of the policy network
+    :param last_layer_dim_vf: (int) number of units for the last layer of the value network
+    """
+
+    def __init__(
+        self,
+        feature_dim: int,
+        last_layer_dim_pi: int = 64,
+        last_layer_dim_vf: int = 64,
+    ):
+        super().__init__()
+
+        # IMPORTANT:
+        # Save output dimensions, used to create the distributions
+        self.latent_dim_pi = last_layer_dim_pi
+        self.latent_dim_vf = last_layer_dim_vf
+
+        # Policy network
+        self.policy_net = torch.nn.Sequential(
+            torch.nn.Linear(feature_dim, last_layer_dim_pi), torch.nn.ReLU()
+        )
+        # Value network
+        self.value_net = torch.nn.Sequential(
+            torch.nn.Linear(feature_dim, last_layer_dim_vf), torch.nn.ReLU()
+        )
+
+    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        :return: (th.Tensor, th.Tensor) latent_policy, latent_value of the specified network.
+            If all layers are shared, then ``latent_policy == latent_value``
+        """
+        return self.forward_actor(features), self.forward_critic(features)
+
+    def forward_actor(self, features: torch.Tensor) -> torch.Tensor:
+        return self.policy_net(features)
+
+    def forward_critic(self, features: torch.Tensor) -> torch.Tensor:
+        return self.value_net(features)
+
+
+class CustomActorCriticPolicy(MaskableActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        lr_schedule: Callable[[float], float],
+        *args,
+        **kwargs,
+    ):
+
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            # Pass remaining arguments to base class
+            *args,
+            **kwargs,
+        )
+        # Disable orthogonal initialization
+        self.ortho_init = False
+
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = CustomNetwork(self.features_dim)
 
 
 class AdditionalInfoCallback(BaseCallback):
@@ -44,6 +122,56 @@ class AdditionalInfoCallback(BaseCallback):
         """
         self.logger.record("experiment_name", self.experiment_name)
         self.logger.record("difficulty", self.current_difficulty)
+        hparam_dict = {
+            "experiment_name": self.experiment_name,
+            "difficulty": self.current_difficulty,
+            "algorithm": self.model.__class__.__name__,
+            "learning rate": self.model.learning_rate,
+            "gamma": self.model.gamma,  # NOQA
+            "gae_lambda": self.model.gae_lambda,  # NOQA
+            "target_kl": self.model.target_kl,  # NOQA
+            "vf_coef": self.model.vf_coef,  # NOQA
+            "ent_coef": self.model.ent_coef,  # NOQA
+            "n_steps": self.model.n_steps,  # NOQA
+            "batch_size": self.model.batch_size,  # NOQA
+            "maximum_episode_steps": self.env.maximum_episode_steps,
+            "step_window": self.env.step_window,
+            "seconds_window": self.env.seconds_window,
+            "add_action_to_obs": self.env.add_action_to_obs,
+            "reset_on_collisions": self.env.reset_on_collisions,
+            "on_target_threshold": self.env.on_target_threshold,
+            "dist_sensors_threshold": self.env.dist_sensors_threshold,
+            "ds_type": self.env.ds_type,
+            "ds_noise": self.env.ds_noise,
+            "tar_d_weight_multiplier": self.env.tar_d_weight_multiplier,
+            "tar_a_weight_multiplier": self.env.tar_a_weight_multiplier,
+            "target_distance_weight": self.env.reward_weight_dict["dist_tar"],
+            "tar_angle_weight": self.env.reward_weight_dict["ang_tar"],
+            "dist_sensors_weight": self.env.reward_weight_dict["dist_sensors"],
+            "obs_turning_weight": self.env.reward_weight_dict["obs_turning_reward"],
+            "tar_reach_weight": self.env.reward_weight_dict["tar_reach"],
+            "not_reach_weight": self.env.reward_weight_dict["not_reach_weight"],
+            "collision_weight": self.env.reward_weight_dict["collision"],
+            "time_penalty_weight": self.env.reward_weight_dict["time_penalty_weight"],
+
+        }
+        # define the metrics that will appear in the `HPARAMS` Tensorboard tab by referencing their tag
+        # Tensorboard will find & display metrics from the `SCALARS` tab
+        metric_dict = {
+            "rollout/ep_len_mean": 0,
+            "rollout/ep_rew_mean": 0,
+            "rollout/normalized reward": 0.0,
+            "rollout/collision termination count": 0.0,
+            "rollout/reach target count": 0.0,
+            "rollout/timeout count": 0.0,
+            "rollout/reset count": 0.0,
+            "rollout/success percentage": 0.0,
+        }
+        self.logger.record(
+            "hparams",
+            HParam(hparam_dict, metric_dict),
+            exclude=("stdout", "log", "json", "csv"),
+        )
 
     def _on_rollout_start(self) -> None:
         """
@@ -70,14 +198,14 @@ class AdditionalInfoCallback(BaseCallback):
         """
         self.logger.record("general/experiment_name", self.experiment_name)
         self.logger.record("general/difficulty", self.current_difficulty)
-        self.logger.record("resets/reset count", self.env.reset_count)
-        self.logger.record("resets/reach target count", self.env.reach_target_count)
-        self.logger.record("resets/collision termination count", self.env.collision_termination_count)
-        self.logger.record("resets/timeout count", self.env.timeout_count)
+        self.logger.record("rollout/reset count", self.env.reset_count)
+        self.logger.record("rollout/reach target count", self.env.reach_target_count)
+        self.logger.record("rollout/collision termination count", self.env.collision_termination_count)
+        self.logger.record("rollout/timeout count", self.env.timeout_count)
         if self.env.reach_target_count == 0 or self.env.reset_count == 0:
-            self.logger.record("resets/success percentage", 0.0)
+            self.logger.record("rollout/success percentage", 0.0)
         else:
-            self.logger.record("resets/success percentage", self.env.reach_target_count / self.env.reset_count)
+            self.logger.record("rollout/success percentage", self.env.reach_target_count / self.env.reset_count)
 
         normed_reward = self.env.sum_normed_reward / self.model.n_steps  # NOQA
         self.logger.record("rollout/normalized reward", normed_reward)
@@ -111,7 +239,7 @@ def run(experiment_name):
     # Environment setup
     seed = 1
 
-    n_steps = 32_786  # Number of steps between training, effectively the size of the buffer to train on
+    n_steps = 32_768  # Number of steps between training, effectively the size of the buffer to train on
     batch_size = 2048
     maximum_episode_steps = 16_384  # Minimum 2 (16384*2=32768) full episodes per training step
     total_timesteps = 524_288  # Minimum 32 (16384*32=524288) episodes' worth of timesteps per difficulty
@@ -155,22 +283,27 @@ def run(experiment_name):
         torch.manual_seed(seed)
         np.random.seed(seed)
 
-    env = PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
-                                       seconds_window=seconds_window,
-                                       add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
-                                       reset_on_collisions=reset_on_collisions, manual_control=manual_control,
-                                       on_target_threshold=on_tar_threshold,
-                                       dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
-                                       ds_noise=ds_noise,
-                                       tar_d_weight_multiplier=tar_d_weight_multiplier,
-                                       tar_a_weight_multiplier=tar_a_weight_multiplier,
-                                       target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
-                                       dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
-                                       tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
-                                       time_penalty_weight=time_penalty_weight,
-                                       not_reach_weight=not_reach_weight,
-                                       map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed)
-    env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
+    env = \
+        Monitor(
+            ActionMasker(
+                PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
+                                             seconds_window=seconds_window,
+                                             add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
+                                             reset_on_collisions=reset_on_collisions, manual_control=manual_control,
+                                             on_target_threshold=on_tar_threshold,
+                                             dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
+                                             ds_noise=ds_noise,
+                                             tar_d_weight_multiplier=tar_d_weight_multiplier,
+                                             tar_a_weight_multiplier=tar_a_weight_multiplier,
+                                             target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
+                                             dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
+                                             tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
+                                             time_penalty_weight=time_penalty_weight,
+                                             not_reach_weight=not_reach_weight,
+                                             map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
+                action_mask_fn=mask_fn  # NOQA
+            )
+        )
 
     if not os.path.exists(experiment_dir):
         os.makedirs(experiment_dir)
@@ -217,4 +350,10 @@ def run(experiment_name):
                 reset_num_timesteps=False, callback=printing_callback)
     model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
     print("################### TRAINING FINISHED ###################")
+    print("################### SB3 EVALUATION STARTED ###################")
+    # Evaluate the agent with sb3
+    mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100, deterministic=False)
+    print("################### SB3 EVALUATION FINISHED ###################")
+    print(f"Mean reward: {mean_reward} \n"
+          f"STD reward:  {std_reward}")
     return env
