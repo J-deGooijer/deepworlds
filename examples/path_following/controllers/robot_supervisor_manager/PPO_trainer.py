@@ -127,8 +127,6 @@ def run():
     experiment_name = "Baseline"
     experiment_description = """Baseline description."""
     experiment_dir = f"./experiments/{experiment_name}"
-    load_path = None
-    # load_path = experiment_dir + f"/{experiment_name}_diff_4_agent.zip"
 
     step_window = 1  # Latest steps of observations
     seconds_window = 0  # How many latest seconds of observations
@@ -178,95 +176,50 @@ def run():
                     maximum_episode_steps)
     env = ActionMasker(env, action_mask_fn=mask_fn)  # NOQA
 
-    if load_path is None:
-        if not os.path.exists(experiment_dir):
-            os.makedirs(experiment_dir)
-        env.export_parameters(experiment_dir + f"/{experiment_name}.json",
-                              net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
-                              difficulty_dict, maximum_episode_steps, n_steps, batch_size)
+    if not os.path.exists(experiment_dir):
+        os.makedirs(experiment_dir)
+    env.export_parameters(experiment_dir + f"/{experiment_name}.json",
+                          net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
+                          difficulty_dict, maximum_episode_steps, n_steps, batch_size)
 
     policy_kwargs = dict(activation_fn=torch.nn.ReLU, net_arch=net_arch)
     model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
                         n_steps=n_steps, batch_size=batch_size, gamma=gamma, gae_lambda=gae_lambda,
                         target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
                         verbose=1, tensorboard_log=experiment_dir)
-    if load_path is None:
-        printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
-                                                   current_difficulty="diff_1")
-        env.set_difficulty(difficulty_dict["diff_1"])
-        printing_callback.current_difficulty = "diff_1"
-        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
-                    reset_num_timesteps=False, callback=printing_callback)
-        model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
-        env.set_difficulty(difficulty_dict["diff_2"])
-        printing_callback.current_difficulty = "diff_2"
-        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
-                    reset_num_timesteps=False, callback=printing_callback)
-        model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
-        env.set_difficulty(difficulty_dict["diff_3"])
-        printing_callback.current_difficulty = "diff_3"
-        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
-                    reset_num_timesteps=False, callback=printing_callback)
-        model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
-        env.set_difficulty(difficulty_dict["diff_4"])
-        printing_callback.current_difficulty = "diff_4"
-        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
-                    reset_num_timesteps=False, callback=printing_callback)
-        model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
-    if load_path is not None:
-        model = MaskablePPO.load(load_path)  # NOQA
 
-    diff_ind = 0
-    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], test_difficulty[diff_ind])
-
-    obs = env.reset()
-    cumulative_rew = 0.0
-    tests_count = 0
-    tests_per_difficulty = 3
-    print(f"Experiment name: {experiment_name}, deterministic: {deterministic}")
-    import csv
-    header = [experiment_name]
-    for i in range(len(test_difficulty)):
-        for j in range(tests_per_difficulty):
-            header.append(f"{test_difficulty[i]}")
-
-    episode_rewards = ["reward"]
-    done_reasons = ["done_reason"]
-    steps_row = ["steps"]
-    file_name = "/testing_results.csv" if not deterministic else "/testing_results_det.csv"
-    with open(experiment_dir + file_name, 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        steps = 0
-        while True:
-            action_masks = mask_fn(env)
-            action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
-            obs, rewards, done, info = env.step(action)
-            steps += 1
-            cumulative_rew += rewards
-            if done:
-                episode_rewards.append(cumulative_rew)
-                steps_row.append(steps)
-                try:
-                    print(f"Episode reward: {cumulative_rew}, steps: {steps}, done reason: {info['done_reason']}")
-                    done_reasons.append(info['done_reason'])
-                except KeyError:
-                    print(f"Episode reward: {cumulative_rew}, steps: {steps}, done reason: timeout")
-                    done_reasons.append("timeout")
-                cumulative_rew = 0.0
-                steps = 0
-
-                tests_count += 1
-                if tests_count == tests_per_difficulty:
-                    diff_ind += 1
-                    try:
-                        env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], key=test_difficulty[diff_ind])
-                    except IndexError:
-                        print("Testing complete.")
-                        break
-                    tests_count = 0
-                env.reset()
-
-        writer.writerow(episode_rewards)
-        writer.writerow(done_reasons)
-        writer.writerow(steps_row)
+    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
+                                               current_difficulty="diff_1")
+    # Corridor 1 training session
+    env.set_difficulty(difficulty_dict["diff_1"])
+    printing_callback.current_difficulty = "diff_1"
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
+    # Corridor 2 training session
+    env.set_difficulty(difficulty_dict["diff_2"])
+    printing_callback.current_difficulty = "diff_2"
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
+    # Corridor 3 training session
+    env.set_difficulty(difficulty_dict["diff_3"])
+    printing_callback.current_difficulty = "diff_3"
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
+    # Corridor 4 training session
+    env.set_difficulty(difficulty_dict["diff_4"])
+    printing_callback.current_difficulty = "diff_4"
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
+    # Random map training session
+    env._max_episode_steps *= 2  # NOQA
+    env.maximum_episode_steps = env._max_episode_steps  # NOQA
+    env.set_difficulty(difficulty_dict["random_diff"])
+    printing_callback.current_difficulty = "random_diff"
+    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_5",
+                reset_num_timesteps=False, callback=printing_callback)
+    model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
+    print("Training finished.")
