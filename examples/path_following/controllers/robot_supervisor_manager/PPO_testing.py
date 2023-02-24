@@ -39,6 +39,8 @@ def run(experiment_name, env, deterministic):
     cumulative_rew = 0.0
     tests_count = 0
     tests_per_difficulty = 100
+
+    print("################### CUSTOM EVALUATION STARTED ###################")
     print(f"Experiment name: {experiment_name}, deterministic: {deterministic}")
     import csv
     header = [experiment_name]
@@ -87,3 +89,4 @@ def run(experiment_name, env, deterministic):
         writer.writerow(episode_rewards)
         writer.writerow(done_reasons)
         writer.writerow(steps_row)
+    print("################### CUSTOM EVALUATION FINISHED ###################")
