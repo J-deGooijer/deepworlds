@@ -1,6 +1,9 @@
 """
 More runners for discrete RL algorithms can be added here.
 """
-import PPO_runner
+import PPO_trainer
+import PPO_testing
 
-PPO_runner.run()
+
+PPO_trainer.run()
+PPO_testing.run()
