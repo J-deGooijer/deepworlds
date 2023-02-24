@@ -10,7 +10,7 @@ from controller import Supervisor, Keyboard
 class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     """
     TODO *Problem description*
-
+    TODO update
     :param description: A description that can be saved in an exported file
     :type description: str
     :param step_window: How many steps of observations to add in the observation window, defaults to 1
@@ -64,12 +64,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
     :type seed: int, optional
     """
 
-    def __init__(self, description, step_window=1, seconds_window=0, add_action_to_obs=True,
+    def __init__(self, description, maximum_episode_steps, step_window=1, seconds_window=0, add_action_to_obs=True,
                  max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
                  on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
                  tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
                  target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0, obs_turning_weight=1.0,
-                 tar_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
+                 tar_reach_weight=1.0, not_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
         super().__init__()
         self.seed = seed
@@ -101,8 +101,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.seconds_window = seconds_window
         self.obs_list = []
         # Set up observation low values
-        # Distance to target, angle to target, distance change, angle change, motor speed left, motor speed right
-        single_obs_low = [0.0, -1.0, -1.0, -1.0, -1.0, -1.0]
+        # Distance to target, angle to target, distance change, angle change, motor speed left, motor speed right, touch
+        single_obs_low = [0.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0]
         # Add action one-hot vector
         if self.add_action_to_obs:
             single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
@@ -110,7 +110,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
 
         # Set up corresponding observation high values
-        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         if self.add_action_to_obs:
             single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
@@ -171,6 +171,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         # Grab target node
         self.target = self.getFromDef("TARGET")
+        self.target.getField("rotation").setSFRotation([0.0, 0.0, 1.0, 0.0])
 
         # Set up misc
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
@@ -186,8 +187,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "obs_turning_reward": obs_turning_weight,
-                                   "tar_reach": tar_reach_weight, "collision": collision_weight,
-                                   "time_penalty_weight": time_penalty_weight}
+                                   "tar_reach": tar_reach_weight, "not_reach_weight": not_reach_weight,
+                                   "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
         self.tar_d_weight_multiplier = tar_d_weight_multiplier
         self.tar_a_weight_multiplier = tar_a_weight_multiplier
         self.sum_normed_reward = 0.0  # Used as a metric
@@ -203,12 +204,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Center map to (0, 0)
         origin = [-(self.map_width // 2) * self.cell_size[0], (self.map_height // 2) * self.cell_size[1]]
         self.map = Grid(self.map_width, self.map_height, origin, self.cell_size)
-        # Find diagonal distance on the map which is the max distance between any two map cells
-        dx = self.map.get_world_coordinates(0, 0)[0] - self.map.get_world_coordinates(self.map_width - 1,  # NOQA
-                                                                                      self.map_height - 1)[0]  # NOQA
-        dy = self.map.get_world_coordinates(0, 0)[1] - self.map.get_world_coordinates(self.map_width - 1,  # NOQA
-                                                                                      self.map_height - 1)[1]  # NOQA
-        self.max_target_distance = np.sqrt(dx * dx + dy * dy)
 
         # Obstacle references and starting positions used to reset them
         self.all_obstacles = []
@@ -254,7 +249,15 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.min_target_dist = 1
         self.max_target_dist = 1
 
-        self.done_reason = ""  # Used to print the reason the episode is done while testing
+        self.current_timestep = 0
+        self.maximum_episode_steps = maximum_episode_steps
+        self.done_reason = "timeout"  # Used to print the reason the episode is done while testing
+        self.reset_count = -1
+        self.reach_target_count = 0
+        self.collision_termination_count = 0
+        self.timeout_count = -1
+        self.initial_target_distance = 0.0
+        self.min_distance_reached = float("inf")
 
     def set_difficulty(self, difficulty_dict, key=None):
         """
@@ -305,7 +308,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             mask[0] = False
 
         # Unmask backward action if any sensor is reading a small value
-        for i in range(1, len(self.current_dist_sensors) - 1):
+        for i in range(len(self.current_dist_sensors)):
             if self.current_dist_sensors[i] < self.dist_sensors_threshold:
                 mask[2] = True
                 mask[3] = True
@@ -323,6 +326,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_observations(self, action=None):
         """
+        TODO update
         This method returns the observation list of the agent.
         A single observation consists of the distance and angle to the target, the latest change of the distance and
         angle to target, the current motor speeds, the latest action represented by a one-hot vector,
@@ -352,13 +356,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.previous_tar_d = self.current_tar_d
             self.previous_tar_a = self.current_tar_a
         # Add distance, angle, distance change, angle change
-        obs = [normalize_to_range(self.current_tar_d, 0.0, self.max_target_distance, 0.0, 1.0, clip=True),
+        obs = [normalize_to_range(self.current_tar_d, 0.0, self.initial_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
                round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.00128, 0.00128, -1.0, 1.0,
                                         clip=True), 4),
                round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
                                         clip=True), 4),
-               self.motor_speeds[0], self.motor_speeds[1]]
+               self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]
 
         if self.add_action_to_obs:
             # Add action one-hot
@@ -401,6 +405,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_reward(self, action):
         """
+        TODO update
         This method calculates the reward. The reward consists of various components that get weighted and added into
         the final reward that gets returned.
 
@@ -432,8 +437,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.previous_tar_d = self.current_tar_d
             self.previous_tar_a = self.current_tar_a
 
-        dist_tar_reward = normalize_to_range(self.previous_tar_d - self.current_tar_d,
-                                             -0.0013, 0.0013, -1.0, 1.0, clip=True)
+        # dist_tar_reward = normalize_to_range(self.previous_tar_d - self.current_tar_d,
+        #                                      -0.0013, 0.0013, -1.0, 1.0, clip=True)
+        dist_tar_reward = 0.0
+        if self.current_tar_d < self.min_distance_reached:
+            dist_tar_reward = 1.0
+            self.min_distance_reached = self.current_tar_d
 
         # Reward for decreasing angle to the target
         ang_tar_reward = 0.0
@@ -445,7 +454,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Reward for reaching the target
         reach_tar_reward = 0.0
         if self.current_tar_d < self.on_target_threshold:
-            reach_tar_reward = 1.0
+            reach_tar_reward = 1.0 - 0.5 * self.current_timestep / self.maximum_episode_steps
             self.trigger_done = True  # Terminate episode
             self.done_reason = "reached target"
 
@@ -453,8 +462,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         dist_sensors_reward = 0
         for i in range(len(self.distance_sensors)):
             if self.current_dist_sensors[i] < self.dist_sensors_threshold:
-                dist_sensors_reward = -1.0  # If any sensor is under threshold assign penalty
-                break
+                dist_sensors_reward -= 1.0  # If any sensor is under threshold assign penalty
+        dist_sensors_reward /= self.number_of_distance_sensors
+        dist_sensors_reward = normalize_to_range(dist_sensors_reward, 0.0, -0.5385, 0.0, -1.0)
 
         # Penalty for turning towards obstacles, by penalizing decreasing ds values
         obs_turning_rewards = []
@@ -476,7 +486,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
             self.collisions_counter += 1
-            if self.collisions_counter >= self.reset_on_collisions - 1:
+            if self.collisions_counter >= self.reset_on_collisions - 1 and self.reset_on_collisions != -1:
                 self.trigger_done = True
                 self.done_reason = "collision"
                 self.collisions_counter = 0
@@ -485,6 +495,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Assign a penalty for each step
         time_penalty = -1.0
 
+        # Episode will terminate and robot didn't reach the target
+        not_reach_reward = 0.0
+        if self.current_timestep == self.maximum_episode_steps - 1:
+            not_reach_reward = normalize_to_range(get_distance_from_target(self.robot, self.target),
+                                                  0.0, 1.0, 0.0, -1.0)
+
         ################################################################################################################
         # Total reward calculation
         weighted_dist_tar_reward = self.reward_weight_dict["dist_tar"] * dist_tar_reward
@@ -492,6 +508,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         weighted_dist_sensors_reward = self.reward_weight_dict["dist_sensors"] * dist_sensors_reward
         weighted_obs_turning_reward = self.reward_weight_dict["obs_turning_reward"] * obs_turning_reward
         weighted_reach_tar_reward = self.reward_weight_dict["tar_reach"] * reach_tar_reward
+        weighted_not_reach_tar_reward = self.reward_weight_dict["not_reach_weight"] * not_reach_reward
         weighted_collision_reward = self.reward_weight_dict["collision"] * collision_reward
         weighted_time_penalty = self.reward_weight_dict["time_penalty_weight"] * time_penalty
 
@@ -509,13 +526,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                    weights_normed["dist_sensors"] * dist_sensors_reward +
                                    weights_normed["obs_turning_reward"] * obs_turning_reward +
                                    weights_normed["tar_reach"] * collision_reward +
+                                   weights_normed["not_reach_weight"] * not_reach_reward +
                                    weights_normed["collision"] * reach_tar_reward +
                                    weights_normed["time_penalty_weight"] * time_penalty)
 
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
-                  weighted_obs_turning_reward + weighted_collision_reward + weighted_reach_tar_reward +
-                  weighted_time_penalty)
+                  weighted_obs_turning_reward + weighted_collision_reward +
+                  weighted_reach_tar_reward + weighted_not_reach_tar_reward + weighted_time_penalty)
 
         if self.just_reset:
             self.just_reset = False
@@ -540,6 +558,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def reset(self):
         """
+        TODO update
         Resets the simulation physics and objects and re-initializes robot and target positions,
         along any other variables that need to be reset to their original values.
 
@@ -553,6 +572,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                           self.step_window)]
         self.observation_counter = self.observation_counter_limit
         # Reset path and various values
+        self.current_timestep = 0
         self.trigger_done = False
         self.path_to_target = None
         self.motor_speeds = [0.0, 0.0]
@@ -614,7 +634,17 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         # Finally, reset viewpoint, so it plays nice
         self.viewpoint.getField("position").setSFVec3f(self.viewpoint_position)
         self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
-
+        self.reset_count += 1
+        print("Resetting, done reason:", self.done_reason)
+        if self.done_reason == "collision":
+            self.collision_termination_count += 1
+        elif self.done_reason == "reached target":
+            self.reach_target_count += 1
+        elif self.done_reason == "timeout":
+            self.timeout_count += 1
+        self.done_reason = "timeout"
+        self.initial_target_distance = get_distance_from_target(self.robot, self.target)
+        self.min_distance_reached = float("inf")
         return self.obs_list
 
     def get_default_observation(self):
@@ -732,6 +762,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         rew = self.get_reward(action)
         done = self.is_done()
         info = self.get_info()
+        self.current_timestep += 1
         return (
             obs,
             rew,
@@ -823,7 +854,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for path_node, starting_pos in zip(self.all_path_nodes, self.all_path_nodes_starting_positions):
             path_node.getField("translation").setSFVec3f(starting_pos)
             path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
-        # for ob_mar_node, starting_pos in zip(self.obstacle_marker_nodes, self.obstacle_marker_nodes_starting_positions):
+        # for ob_mar_node, starting_pos in zip(self.obstacle_marker_nodes,
+        #                                      self.obstacle_marker_nodes_starting_positions):
         #     ob_mar_node.getField("translation").setSFVec3f(starting_pos)
         #     ob_mar_node.getField("rotation").setSFRotation([0, 0, 1, 0])
         for wall_node, starting_pos in zip(self.walls, self.walls_starting_positions):
@@ -1026,9 +1058,10 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         print("render() is not used")
 
     def export_parameters(self, path,
-                          net_arch, gamma, target_kl, vf_coef, ent_coef,
-                          difficulty_dict, maximum_episode_steps):
+                          net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
+                          difficulty_dict, maximum_episode_steps, n_steps, batch_size):
         """
+        TODO update
         Exports all parameters that define the environment/experiment setup.
 
         :param path: The path to save the export
@@ -1051,6 +1084,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         import json
         param_dict = {"experiment_description": self.experiment_desc,
                       "seed": self.seed,
+                      "n_steps:": n_steps,
+                      "batch_size": batch_size,
                       "maximum_episode_steps": maximum_episode_steps,
                       "add_action_to_obs": self.add_action_to_obs,
                       "step_window": self.step_window,
@@ -1067,6 +1102,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                       "ppo_params": {
                           "net_arch": net_arch,
                           "gamma": gamma,
+                          "gae_lambda": gae_lambda,
                           "target_kl": target_kl,
                           "vf_coef": vf_coef,
                           "ent_coef": ent_coef,
