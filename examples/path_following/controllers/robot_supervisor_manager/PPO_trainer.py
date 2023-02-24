@@ -106,8 +106,6 @@ def run():
                                   "min_target_dist": 5, "max_target_dist": 5},
                        "random_diff": {"type": "random", "number_of_obstacles": 25,
                                        "min_target_dist": 5, "max_target_dist": 12}}
-    test_difficulty = list(difficulty_dict.keys())
-    deterministic = False  # Whether action is deterministic when testing
     manual_control = False
 
     # Environment setup
