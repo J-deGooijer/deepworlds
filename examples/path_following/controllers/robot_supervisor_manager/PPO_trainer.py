@@ -240,7 +240,7 @@ def run(experiment_name):
     seed = 1
 
     n_steps = 32_768  # Number of steps between training, effectively the size of the buffer to train on
-    batch_size = 2048
+    batch_size = 4_096
     maximum_episode_steps = 16_384  # Minimum 2 (16384*2=32768) full episodes per training step
     total_timesteps = 524_288  # Minimum 32 (16384*32=524288) episodes' worth of timesteps per difficulty
 
@@ -271,7 +271,7 @@ def run(experiment_name):
     obs_turning_weight = 0.0
     tar_reach_weight = 1000.0
     not_reach_weight = 1000.0
-    col_weight = 5.0
+    col_weight = 10.0
     time_penalty_weight = 0.1
 
     net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
