@@ -388,7 +388,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         diluted_obs = []
         counter = 0
-        for j in range(len(self.obs_memory) - 2 - self.step_window, 0, -1):
+        for j in range(len(self.obs_memory) - 1 - self.step_window, 0, -1):
             counter += 1
             if counter >= self.observation_counter_limit - 1:
                 diluted_obs.append(self.obs_memory[j])
