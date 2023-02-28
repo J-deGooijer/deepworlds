@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import random
 from sb3_contrib import MaskablePPO
 
 
@@ -27,6 +28,7 @@ def run(experiment_name, env, deterministic):
     load_path = experiment_dir + f"/{experiment_name}_diff_5_agent.zip"
 
     if seed is not None:
+        random.seed(seed)
         torch.manual_seed(seed)
         np.random.seed(seed)
 
