@@ -148,7 +148,10 @@ DEF ROBOT Robot {
           name "distance sensor(0)"
           lookupTable [
             0.0775 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -158,7 +161,10 @@ DEF ROBOT Robot {
           name "distance sensor(1)"
           lookupTable [
             0.05 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -168,7 +174,10 @@ DEF ROBOT Robot {
           name "distance sensor(2)"
           lookupTable [
             0.025 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -178,7 +187,10 @@ DEF ROBOT Robot {
           name "distance sensor(3)"
           lookupTable [
             0.018 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -188,7 +200,10 @@ DEF ROBOT Robot {
           name "distance sensor(4)"
           lookupTable [
             0.015 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -198,7 +213,10 @@ DEF ROBOT Robot {
           name "distance sensor(5)"
           lookupTable [
             0.0138 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -207,7 +225,10 @@ DEF ROBOT Robot {
           name "distance sensor(6)"
           lookupTable [
             0.0135 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -217,7 +238,10 @@ DEF ROBOT Robot {
           name "distance sensor(7)"
           lookupTable [
             0.0138 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -227,7 +251,10 @@ DEF ROBOT Robot {
           name "distance sensor(8)"
           lookupTable [
             0.015 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -237,7 +264,10 @@ DEF ROBOT Robot {
           name "distance sensor(9)"
           lookupTable [
             0.018 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -247,7 +277,10 @@ DEF ROBOT Robot {
           name "distance sensor(10)"
           lookupTable [
             0.025 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -257,7 +290,10 @@ DEF ROBOT Robot {
           name "distance sensor(11)"
           lookupTable [
             0.05 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -267,7 +303,10 @@ DEF ROBOT Robot {
           name "distance sensor(12)"
           lookupTable [
             0.0775 0 0
-            1 100 0
+            0.1 10 0.025
+            0.2 20 0.025
+            0.3 30 0.025
+            0.4 40 0.0
           ]
           type "sonar"
         }
@@ -818,179 +857,6 @@ DEF PATH Group {
         }
       ]
       name "p(15)"
-    }
-  ]
-}
-DEF OBSTACLE_MARKERS Group {
-  children [
-    DEF marker0 Solid {
-      translation 5.18 -0.18 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker"
-    }
-    DEF marker1 Solid {
-      translation 5.18 -0.12 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(1)"
-    }
-    DEF marker2 Solid {
-      translation 5.18 -0.07 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(2)"
-    }
-    DEF marker3 Solid {
-      translation 5.18 -0.02 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(3)"
-    }
-    DEF marker4 Solid {
-      translation 5.18 0.03 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(4)"
-    }
-    DEF marker5 Solid {
-      translation 5.18 0.08 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(5)"
-    }
-    DEF marker6 Solid {
-      translation 5.18 0.13 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(6)"
-    }
-    DEF marker7 Solid {
-      translation 5.18 0.18 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(7)"
-    }
-    DEF marker8 Solid {
-      translation 5.18 0.24 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(8)"
-    }
-    DEF marker9 Solid {
-      translation 5.18 0.3 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(9)"
-    }
-    DEF marker10 Solid {
-      translation 5.18 0.36 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(10)"
-    }
-    DEF marker11 Solid {
-      translation 5.18 0.42 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(11)"
-    }
-    DEF marker12 Solid {
-      translation 5.18 0.47 0.24
-      children [
-        Shape {
-          appearance PBRAppearance {
-          }
-          geometry Box {
-            size 0.025 0.025 0.025
-          }
-        }
-      ]
-      name "marker(12)"
     }
   ]
 }
