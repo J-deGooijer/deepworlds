@@ -153,7 +153,13 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                     self.distance_sensors.append(self.getDevice(f"distance sensor({str(i)})"))
                     self.distance_sensors[-1].enable(self.timestep)  # NOQA
                     ds_node = ds_group.getMFNode(i)
-                    ds_node.getField("lookupTable").setMFVec3f(-1, [max_ds_range / 100.0, max_ds_range, self.ds_noise])
+                    ds_node.getField("lookupTable").setMFVec3f(4, [max_ds_range / 100.0, max_ds_range])
+                    ds_node.getField("lookupTable").setMFVec3f(3, [0.75 * max_ds_range / 100.0, 0.75 * max_ds_range,
+                                                                   self.ds_noise])
+                    ds_node.getField("lookupTable").setMFVec3f(2, [0.5 * max_ds_range / 100.0, 0.5 * max_ds_range,
+                                                                   self.ds_noise])
+                    ds_node.getField("lookupTable").setMFVec3f(1, [0.25 * max_ds_range / 100.0, 0.25 * max_ds_range,
+                                                                   self.ds_noise])
                     ds_node.getField("type").setSFString(self.ds_type)
                     # self.ds_nodes.append(ds_node)
                     self.ds_max.append(max_ds_range)  # NOQA
@@ -182,7 +188,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        # self.current_virtual_angles = []
 
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
@@ -225,15 +230,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             child = self.getFromDef("PATH").getField("children").getMFNode(childNodeIndex)  # NOQA
             self.all_path_nodes.append(child)
             self.all_path_nodes_starting_positions.append(child.getField("translation").getSFVec3f())
-
-        # # Obstacle marker node references and starting positions used to reset them
-        # self.obstacle_marker_nodes = []
-        # self.obstacle_marker_nodes_starting_positions = []
-        # for childNodeIndex in range(self.getFromDef("OBSTACLE_MARKERS").getField("children").getCount()):
-        #     child = self.getFromDef("OBSTACLE_MARKERS").getField("children").getMFNode(childNodeIndex)  # NOQA
-        #     self.obstacle_marker_nodes.append(child)
-        #     self.obstacle_marker_nodes_starting_positions.append(child.getField("translation").getSFVec3f()[0:2])
-        #     self.obstacle_marker_nodes_starting_positions[-1].append(0.05)
 
         self.current_difficulty = {}
         self.number_of_obstacles = 0  # The number of obstacles to use, set from set_difficulty method
@@ -362,7 +358,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                                         clip=True), 4),
                round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
                                         clip=True), 4),
-               self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]
+               self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]  # NOQA
 
         if self.add_action_to_obs:
             # Add action one-hot
@@ -583,7 +579,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        # self.current_virtual_angles = []
         self.collisions_counter = 0
 
         # Set robot random rotation
@@ -676,71 +671,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for ds in self.distance_sensors:
             self.current_dist_sensors.append(ds.getValue())  # NOQA
 
-    # def update_virtual_angles(self):
-    #
-    #     # Grab all current ds observations to create virtual targets
-    #     ds_obs = [0.0 for _ in range(self.number_of_distance_sensors * (self.step_window + self.seconds_window))]
-    #     skip = 6 + self.action_space.n
-    #     skip_count = 0
-    #     ds_count = 0
-    #     ds_obs_ind = 0
-    #     for i in range(len(self.obs_list)):
-    #         if skip_count < skip:
-    #             skip_count += 1
-    #             ds_count = 0
-    #         elif ds_count < self.number_of_distance_sensors:
-    #             # Grab ds value and convert it back to raw sensor value
-    #             ds_obs[ds_obs_ind] = normalize_to_range(self.obs_list[i], 1.0, 0.0, 0.0, self.ds_max[0])
-    #             ds_obs_ind += 1
-    #             ds_count += 1
-    #             if ds_count >= self.number_of_distance_sensors:
-    #                 ds_count = 0
-    #                 skip_count = 0
-    #
-    #     # Create the virtual targets
-    #     def rotate(origin, point, angle):
-    #         """
-    #         Rotate a point counterclockwise by a given angle around a given origin.
-    #
-    #         The angle should be given in radians.
-    #         """
-    #         ox, oy = origin
-    #         px, py = point
-    #
-    #         qx = ox + np.cos(angle) * (px - ox) - np.sin(angle) * (py - oy)
-    #         qy = oy + np.sin(angle) * (px - ox) + np.cos(angle) * (py - oy)
-    #         return [qx, qy]
-    #
-    #     robot_coordinates = np.round(self.ds_nodes[0].getPosition()[0:2], 4)
-    #     sensor_angles = [(np.pi / 2) - ((np.pi / 2) / 6) * i for i in range(self.number_of_distance_sensors)]
-    #     sa_index = self.number_of_distance_sensors - 1
-    #     robot_angle = (self.robot.getField('rotation').getSFRotation()[3] *
-    #                    np.sign(self.robot.getField('rotation').getSFRotation()[2]))
-    #     self.current_virtual_angles = []
-    #     for i in range(len(ds_obs)):
-    #         if ds_obs[i] < self.ds_max[sa_index]:
-    #             sensor_multiplier = ds_obs[i] / (self.ds_max[sa_index] + self.ds_min[sa_index])
-    #             unit_vector = np.array([np.sin(sensor_angles[sa_index]), -np.cos(sensor_angles[sa_index])])
-    #             real_vector = unit_vector * sensor_multiplier
-    #             real_vector = real_vector + (unit_vector * (self.ds_min[sa_index] / 100))
-    #             rob_unit_vector = [robot_coordinates[0] - real_vector[0], robot_coordinates[1] + real_vector[1]]
-    #             rob_unit_vector = rotate(robot_coordinates, rob_unit_vector, robot_angle + np.pi / 2)
-    #             self.obstacle_marker_nodes[sa_index].getField("translation"). \
-    #                 setSFVec3f([rob_unit_vector[0],
-    #                             rob_unit_vector[1],
-    #                             self.obstacle_marker_nodes_starting_positions[sa_index][2]])
-    #             self.current_virtual_angles.append(np.rad2deg(get_angle_from_target(self.robot, rob_unit_vector,
-    #                                                                                 node_mode=False, is_abs=True)))
-    #         else:
-    #             self.obstacle_marker_nodes[sa_index].getField("translation"). \
-    #                 setSFVec3f([self.obstacle_marker_nodes_starting_positions[sa_index][0],
-    #                             self.obstacle_marker_nodes_starting_positions[sa_index][1],
-    #                             self.obstacle_marker_nodes_starting_positions[sa_index][2]])
-    #
-    #         sa_index -= 1
-    #         if sa_index < 0:
-    #             sa_index = self.number_of_distance_sensors - 1
-
     def step(self, action):
         """
         Step override method which slightly modifies the parent.
@@ -807,16 +737,24 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
         if self.manual_control:
             action = 4
-        if key == ord("Q"):  # Increase left motor speed
-            action = 0
-        if key == ord("E"):  # Increase right motor speed
-            action = 1
-        if key == ord("A"):  # Decrease left motor speed
-            action = 2
-        if key == ord("D"):  # Decrease right motor speed
-            action = 3
-        if key == ord("S"):  # Stop motors
-            self.motor_speeds = [0.0, 0.0]
+            self.motor_speeds[0] = 0.0
+            self.motor_speeds[1] = 0.0
+        if key == ord("W"):  # Move forward
+            action = 4
+            self.motor_speeds[0] = 4.0
+            self.motor_speeds[1] = 4.0
+        if key == ord("S"):  # Move backward
+            action = 4
+            self.motor_speeds[0] = -4.0
+            self.motor_speeds[1] = -4.0
+        if key == ord("A"):  # Turn Left
+            action = 4
+            self.motor_speeds[0] = -2.0
+            self.motor_speeds[1] = 2.0
+        if key == ord("D"):  # Turn right
+            action = 4
+            self.motor_speeds[0] = 2.0
+            self.motor_speeds[1] = -2.0
 
         if action == 0:  # Increase left wheel
             if self.motor_speeds[0] < 1.0:
