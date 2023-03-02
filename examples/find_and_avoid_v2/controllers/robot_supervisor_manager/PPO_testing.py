@@ -107,7 +107,6 @@ def run(experiment_name, env, deterministic):
                     tests_count = 0
                 obs = env.reset()
 
-        print("Testing done.")
         writer.writerow(episode_rewards)
         writer.writerow(done_reasons)
         writer.writerow(steps_row)
