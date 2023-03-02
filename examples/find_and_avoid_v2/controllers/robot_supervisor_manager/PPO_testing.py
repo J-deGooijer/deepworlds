@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import random
 from sb3_contrib import MaskablePPO
+from sb3_contrib.common.maskable.evaluation import evaluate_policy
 
 
 def mask_fn(env):
@@ -34,16 +35,24 @@ def run(experiment_name, env, deterministic):
 
     model = MaskablePPO.load(load_path)  # NOQA
 
-    diff_ind = 0
-    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], test_difficulty[diff_ind])
-
-    obs = env.reset()
-    cumulative_rew = 0.0
-    tests_count = 0
-    tests_per_difficulty = 100
+    env.set_difficulty(difficulty_dict["random_diff"], "random_diff")
+    print("################### SB3 EVALUATION STARTED ###################")
+    print("Evaluating for 100 episodes in diff_5 (random map).")
+    print(f"Experiment name: {experiment_name}, deterministic: {deterministic}")
+    # Evaluate the agent with sb3
+    mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100, deterministic=False)
+    print("################### SB3 EVALUATION FINISHED ###################")
+    print(f"Experiment name: {experiment_name}, deterministic: {deterministic}")
+    print(f"Mean reward: {mean_reward} \n"
+          f"STD reward:  {std_reward}")
 
     print("################### CUSTOM EVALUATION STARTED ###################")
     print(f"Experiment name: {experiment_name}, deterministic: {deterministic}")
+    diff_ind = 0
+    env.set_difficulty(difficulty_dict[test_difficulty[diff_ind]], test_difficulty[diff_ind])
+
+    tests_per_difficulty = 100
+
     import csv
     header = [experiment_name]
     for i in range(len(test_difficulty)):
@@ -58,6 +67,10 @@ def run(experiment_name, env, deterministic):
         writer = csv.writer(f)
         writer.writerow(header)
         steps = 0
+        cumulative_rew = 0.0
+        tests_count = 0
+        obs = env.reset()
+        successes_counter = 0
         while True:
             action_masks = mask_fn(env)
             action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
@@ -67,9 +80,15 @@ def run(experiment_name, env, deterministic):
             if done:
                 episode_rewards.append(cumulative_rew)
                 steps_row.append(steps)
-                print(f"Episode reward: {cumulative_rew}, steps: {steps}, done reason: {info['done_reason']}")
+                if info["done_reason"] == "reached target":
+                    successes_counter += 1
+                print(f"Episode reward: {cumulative_rew}, steps: {steps}")
                 full_test_count = (tests_per_difficulty * diff_ind) + tests_count
                 max_test_count = tests_per_difficulty * len(test_difficulty)
+                try:
+                    print(f"Reached target percentage: {100 * successes_counter / full_test_count} %")
+                except ZeroDivisionError:
+                    print(f"Reached target percentage: {100 * successes_counter} %")
                 print(f"Testing progress: "
                       f"{round((full_test_count / max_test_count) * 100.0, 2)}"
                       f"%, {full_test_count} / {max_test_count}")
@@ -86,9 +105,26 @@ def run(experiment_name, env, deterministic):
                         print("Testing complete.")
                         break
                     tests_count = 0
-                env.reset()
+                obs = env.reset()
 
+        print("Testing done.")
         writer.writerow(episode_rewards)
         writer.writerow(done_reasons)
         writer.writerow(steps_row)
+        writer.writerow(["sb3 rew:", mean_reward, "sb3 std:", std_reward])
     print("################### CUSTOM EVALUATION FINISHED ###################")
+    # Continue running until user shuts the simulation down
+    steps = 0
+    cumulative_rew = 0.0
+    obs = env.reset()
+    while True:
+        action_masks = mask_fn(env)
+        action, _states = model.predict(obs, deterministic=deterministic, action_masks=action_masks)
+        obs, rewards, done, info = env.step(action)
+        cumulative_rew += rewards
+        steps += 1
+        if done:
+            print(f"Episode reward: {cumulative_rew}, steps: {steps}, done reason: {info['done_reason']}")
+            cumulative_rew = 0.0
+            steps = 0
+            obs = env.reset()
