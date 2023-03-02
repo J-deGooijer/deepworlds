@@ -7,12 +7,13 @@ from utilities import normalize_to_range, get_distance_from_target, get_angle_fr
 from controller import Supervisor, Keyboard
 
 
-class PathFollowingRobotSupervisor(RobotSupervisorEnv):
+class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     """
     TODO *Problem description*
-    TODO update
     :param description: A description that can be saved in an exported file
     :type description: str
+    :param maximum_episode_steps: The maximum steps per episode before timeout reset
+    :type maximum_episode_steps: int
     :param step_window: How many steps of observations to add in the observation window, defaults to 1
     :type step_window: int, optional
     :param seconds_window: How many seconds of observations to add in the observation window, defaults to 1
@@ -322,20 +323,23 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_observations(self, action=None):
         """
-        TODO update
         This method returns the observation list of the agent.
         A single observation consists of the distance and angle to the target, the latest change of the distance and
-        angle to target, the current motor speeds, the latest action represented by a one-hot vector,
-        and finally the distance sensor values.
+        angle to target, the current motor speeds, the touch sensor value, the latest action represented by
+        a one-hot vector, and finally the distance sensor values.
 
         All values are normalized in their respective ranges, where appropriate:
         - Distance is normalized to [0.0, 1.0]
         - Angle is normalized to [-1.0, 1.0]
         - Distance and angle change to [-1.0, 1.0]
         - Motor speeds are already constrained within [-1.0, 1.0]
+        - Touch sensor value can only been 0 or 1
         - Distance sensor values are normalized to [1.0, 0.0]
           This is done so the input gets a large activation value when the sensor returns
           small values, i.e. an obstacle is close.
+
+        Note that the normalization of the distance and angle change values are based on the maximum robot
+        movement speed that is defined by the maximum motor speeds [-1, 1].
 
         All observations are held in a memory (self.obs_memory) and the current observation is augmented with
         self.step_window steps of the latest single observations and with self.seconds_window seconds of
@@ -355,9 +359,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         obs = [normalize_to_range(self.current_tar_d, 0.0, self.initial_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
                round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.00128, 0.00128, -1.0, 1.0,
-                                        clip=True), 4),
+                                        clip=True), 4),  # TODO Test if this is crucial
                round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                        clip=True), 4),
+                                        clip=True), 4),  # TODO Test if this is crucial
                self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]  # NOQA
 
         if self.add_action_to_obs:
@@ -401,12 +405,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def get_reward(self, action):
         """
-        TODO update
         This method calculates the reward. The reward consists of various components that get weighted and added into
         the final reward that gets returned.
 
-        - Distance to target reward is calculated based on the latest change of the distance to target, which is
-        normalized to [-1.0, 1.0]
+        - Distance to target reward is calculated based on the minimum distance to the target achieved for this episode.
+        The agent is rewarded with a value of 1.0 every time the it decreases the minimum distance to the target,
+        similar to the pit escape problem.
+        (- Distance to target reward is calculated based on the latest change of the distance to target, which is
+        normalized to [-1.0, 1.0]) TODO Fix this
         - Angle to target reward is calculated based on the latest change of the angle to target, if positive and
         over a small threshold, the reward is 1.0, if negative and under a small threshold, the reward is -1.0
         - Reach target reward is 0.0, unless the current distance to target is under the on_target_threshold when it
@@ -433,6 +439,7 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
             self.previous_tar_d = self.current_tar_d
             self.previous_tar_a = self.current_tar_a
 
+        # TODO check whether the current reward added together with the commented continuous reward helps out
         # dist_tar_reward = normalize_to_range(self.previous_tar_d - self.current_tar_d,
         #                                      -0.0013, 0.0013, -1.0, 1.0, clip=True)
         dist_tar_reward = 0.0
@@ -554,7 +561,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
 
     def reset(self):
         """
-        TODO update
         Resets the simulation physics and objects and re-initializes robot and target positions,
         along any other variables that need to be reset to their original values.
 
@@ -660,7 +666,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_d = self.current_tar_d
         self.previous_tar_a = self.current_tar_a
         self.previous_dist_sensors = self.current_dist_sensors
-        # self.update_virtual_angles()
 
         # Target distance and angle
         self.current_tar_d = get_distance_from_target(self.robot, self.target)
@@ -707,6 +712,9 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         )
 
     def set_maximum_episode_steps(self, new_value):
+        """
+        This is required to be able to change the value and sb3 registers it.
+        """
         self.maximum_episode_steps = new_value
 
     def apply_action(self, action):
@@ -717,12 +725,14 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         1: Increase right motor speed
         2: Decrease left motor speed
         3: Decrease right motor speed
-        4: Stop motors
+        4: No action
 
         and applies the action by changing and setting the motor speeds.
 
         This method also incorporates the keyboard control and if the user presses any of the
-        control buttons that correspond to actions (Q, E, A, D, S), it applies and returns that action.
+        control buttons that correspond to more user-friendly actions
+        (W: move forward, A: turn left, S: move backwards, D: turn right), it applies and returns no action
+        for the agent.
 
         :param action: The action to execute
         :type action: int
@@ -801,10 +811,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         for path_node, starting_pos in zip(self.all_path_nodes, self.all_path_nodes_starting_positions):
             path_node.getField("translation").setSFVec3f(starting_pos)
             path_node.getField("rotation").setSFRotation([0, 0, 1, 0])
-        # for ob_mar_node, starting_pos in zip(self.obstacle_marker_nodes,
-        #                                      self.obstacle_marker_nodes_starting_positions):
-        #     ob_mar_node.getField("translation").setSFVec3f(starting_pos)
-        #     ob_mar_node.getField("rotation").setSFRotation([0, 0, 1, 0])
         for wall_node, starting_pos in zip(self.walls, self.walls_starting_positions):
             wall_node.getField("translation").setSFVec3f(starting_pos)
             wall_node.getField("rotation").setSFRotation([0, 0, 1, -1.5708])
@@ -1008,7 +1014,6 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
                           net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
                           difficulty_dict, maximum_episode_steps, n_steps, batch_size):
         """
-        TODO update
         Exports all parameters that define the environment/experiment setup.
 
         :param path: The path to save the export
@@ -1017,6 +1022,8 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type net_arch: dict with two lists
         :param gamma: The gamma value
         :type gamma: float
+        :param gae_lambda: The GAE lambda value
+        :type gae_lambda: float
         :param target_kl: The target_kl value
         :type target_kl: float
         :param vf_coef: The vf_coef value
@@ -1025,8 +1032,12 @@ class PathFollowingRobotSupervisor(RobotSupervisorEnv):
         :type ent_coef: float
         :param difficulty_dict: The difficulty dict
         :type difficulty_dict: dict
-        :param maximum_episode_steps: The maximum episode steps
+        :param maximum_episode_steps: The maximum episode steps before timeout
         :type maximum_episode_steps: int
+        :param n_steps: Number of steps between each training session for sb3
+        :type n_steps: int
+        :param batch_size: The batch size used during training
+        :type batch_size: int
         """
         import json
         param_dict = {"experiment_description": self.experiment_desc,
