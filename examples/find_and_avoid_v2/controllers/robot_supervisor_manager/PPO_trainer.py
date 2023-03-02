@@ -1,89 +1,15 @@
 import os
-from typing import Callable, Tuple
 import numpy as np
 import torch
 
-from gym import spaces
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import HParam
-from sb3_contrib.ppo_mask.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.evaluation import evaluate_policy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib import MaskablePPO
 
-from find_and_avoid_v2_robot_supervisor import PathFollowingRobotSupervisor
-
-
-class CustomNetwork(torch.nn.Module):
-    """
-    Custom network for policy and value function.
-    It receives as input the features extracted by the features extractor.
-
-    :param feature_dim: dimension of the features extracted with the features_extractor (e.g. features from a CNN)
-    :param last_layer_dim_pi: (int) number of units for the last layer of the policy network
-    :param last_layer_dim_vf: (int) number of units for the last layer of the value network
-    """
-
-    def __init__(
-        self,
-        feature_dim: int,
-        last_layer_dim_pi: int = 64,
-        last_layer_dim_vf: int = 64,
-    ):
-        super().__init__()
-
-        # IMPORTANT:
-        # Save output dimensions, used to create the distributions
-        self.latent_dim_pi = last_layer_dim_pi
-        self.latent_dim_vf = last_layer_dim_vf
-
-        # Policy network
-        self.policy_net = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, last_layer_dim_pi), torch.nn.ReLU()
-        )
-        # Value network
-        self.value_net = torch.nn.Sequential(
-            torch.nn.Linear(feature_dim, last_layer_dim_vf), torch.nn.ReLU()
-        )
-
-    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        :return: (th.Tensor, th.Tensor) latent_policy, latent_value of the specified network.
-            If all layers are shared, then ``latent_policy == latent_value``
-        """
-        return self.forward_actor(features), self.forward_critic(features)
-
-    def forward_actor(self, features: torch.Tensor) -> torch.Tensor:
-        return self.policy_net(features)
-
-    def forward_critic(self, features: torch.Tensor) -> torch.Tensor:
-        return self.value_net(features)
-
-
-class CustomActorCriticPolicy(MaskableActorCriticPolicy):
-    def __init__(
-        self,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        lr_schedule: Callable[[float], float],
-        *args,
-        **kwargs,
-    ):
-
-        super().__init__(
-            observation_space,
-            action_space,
-            lr_schedule,
-            # Pass remaining arguments to base class
-            *args,
-            **kwargs,
-        )
-        # Disable orthogonal initialization
-        self.ortho_init = False
-
-    def _build_mlp_extractor(self) -> None:
-        self.mlp_extractor = CustomNetwork(self.features_dim)
+from find_and_avoid_v2_robot_supervisor import FindAndAvoidV2RobotSupervisor
 
 
 class AdditionalInfoCallback(BaseCallback):
@@ -286,21 +212,21 @@ def run(experiment_name):
     env = \
         Monitor(
             ActionMasker(
-                PathFollowingRobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
-                                             seconds_window=seconds_window,
-                                             add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
-                                             reset_on_collisions=reset_on_collisions, manual_control=manual_control,
-                                             on_target_threshold=on_tar_threshold,
-                                             dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
-                                             ds_noise=ds_noise,
-                                             tar_d_weight_multiplier=tar_d_weight_multiplier,
-                                             tar_a_weight_multiplier=tar_a_weight_multiplier,
-                                             target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
-                                             dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
-                                             tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
-                                             time_penalty_weight=time_penalty_weight,
-                                             not_reach_weight=not_reach_weight,
-                                             map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
+                FindAndAvoidV2RobotSupervisor(experiment_description, maximum_episode_steps, step_window=step_window,
+                                              seconds_window=seconds_window,
+                                              add_action_to_obs=add_action_to_obs, max_ds_range=max_ds_range,
+                                              reset_on_collisions=reset_on_collisions, manual_control=manual_control,
+                                              on_target_threshold=on_tar_threshold,
+                                              dist_sensors_threshold=dist_sensors_threshold, ds_type=ds_type,
+                                              ds_noise=ds_noise,
+                                              tar_d_weight_multiplier=tar_d_weight_multiplier,
+                                              tar_a_weight_multiplier=tar_a_weight_multiplier,
+                                              target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
+                                              dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
+                                              tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
+                                              time_penalty_weight=time_penalty_weight,
+                                              not_reach_weight=not_reach_weight,
+                                              map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                 action_mask_fn=mask_fn  # NOQA
             )
         )
@@ -351,9 +277,11 @@ def run(experiment_name):
     model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
     print("################### TRAINING FINISHED ###################")
     print("################### SB3 EVALUATION STARTED ###################")
+    print(f"Experiment name: {experiment_name}")
     # Evaluate the agent with sb3
     mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100, deterministic=False)
     print("################### SB3 EVALUATION FINISHED ###################")
+    print(f"Experiment name: {experiment_name}")
     print(f"Mean reward: {mean_reward} \n"
           f"STD reward:  {std_reward}")
     return env
