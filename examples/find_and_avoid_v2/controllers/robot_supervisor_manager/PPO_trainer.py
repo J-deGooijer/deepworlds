@@ -12,7 +12,7 @@ from sb3_contrib.common.maskable.evaluation import evaluate_policy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib import MaskablePPO
 
-from path_following_robot_supervisor import PathFollowingRobotSupervisor
+from find_and_avoid_v2_robot_supervisor import PathFollowingRobotSupervisor
 
 
 class CustomNetwork(torch.nn.Module):
