@@ -124,7 +124,7 @@ def run(experiment_name, env, deterministic):
         cumulative_rew += rewards
         steps += 1
         if done:
-            print(f"Episode reward: {cumulative_rew}, steps: {steps}, done reason: {info['done_reason']}")
+            print(f"Episode reward: {cumulative_rew}, steps: {steps}")
             cumulative_rew = 0.0
             steps = 0
             obs = env.reset()
