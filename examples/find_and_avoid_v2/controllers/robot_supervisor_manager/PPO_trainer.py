@@ -5,7 +5,6 @@ import torch
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import HParam
-from sb3_contrib.common.maskable.evaluation import evaluate_policy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib import MaskablePPO
 
@@ -148,7 +147,7 @@ def mask_fn(env):
     return env.get_action_mask()
 
 
-def run(experiment_name):
+def run(experiment_name, experiment_description="", manual_control=False, only_test=False):
     # Difficulty setup
     difficulty_dict = {"diff_1": {"type": "corridor", "number_of_obstacles": 2,
                                   "min_target_dist": 2, "max_target_dist": 2},
@@ -160,8 +159,6 @@ def run(experiment_name):
                                   "min_target_dist": 5, "max_target_dist": 5},
                        "random_diff": {"type": "random", "number_of_obstacles": 25,
                                        "min_target_dist": 5, "max_target_dist": 12}}
-    manual_control = False
-
     # Environment setup
     seed = 1
 
@@ -176,7 +173,6 @@ def run(experiment_name):
     vf_coef = 0.5
     ent_coef = 0.001
 
-    experiment_description = """Baseline description."""
     experiment_dir = f"./experiments/{experiment_name}"
 
     step_window = 1  # Latest steps of observations
@@ -230,58 +226,52 @@ def run(experiment_name):
                 action_mask_fn=mask_fn  # NOQA
             )
         )
+    if not only_test:
+        if not os.path.exists(experiment_dir):
+            os.makedirs(experiment_dir)
+        env.export_parameters(experiment_dir + f"/{experiment_name}_parameters.json",
+                              net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
+                              difficulty_dict, maximum_episode_steps, n_steps, batch_size)
 
-    if not os.path.exists(experiment_dir):
-        os.makedirs(experiment_dir)
-    env.export_parameters(experiment_dir + f"/{experiment_name}.json",
-                          net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
-                          difficulty_dict, maximum_episode_steps, n_steps, batch_size)
+        policy_kwargs = dict(activation_fn=torch.nn.ReLU, net_arch=net_arch)
+        model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
+                            n_steps=n_steps, batch_size=batch_size, gamma=gamma, gae_lambda=gae_lambda,
+                            target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
+                            verbose=1, tensorboard_log=experiment_dir)
 
-    policy_kwargs = dict(activation_fn=torch.nn.ReLU, net_arch=net_arch)
-    model = MaskablePPO("MlpPolicy", env, policy_kwargs=policy_kwargs,
-                        n_steps=n_steps, batch_size=batch_size, gamma=gamma, gae_lambda=gae_lambda,
-                        target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef,
-                        verbose=1, tensorboard_log=experiment_dir)
-
-    printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
-                                               current_difficulty="diff_1")
-    # Corridor 1 training session
-    env.set_difficulty(difficulty_dict["diff_1"])
-    printing_callback.current_difficulty = "diff_1"
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
-    # Corridor 2 training session
-    env.set_difficulty(difficulty_dict["diff_2"])
-    printing_callback.current_difficulty = "diff_2"
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
-    # Corridor 3 training session
-    env.set_difficulty(difficulty_dict["diff_3"])
-    printing_callback.current_difficulty = "diff_3"
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
-    # Corridor 4 training session
-    env.set_difficulty(difficulty_dict["diff_4"])
-    printing_callback.current_difficulty = "diff_4"
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
-    # Random map training session
-    env.set_difficulty(difficulty_dict["random_diff"])
-    printing_callback.current_difficulty = "random_diff"
-    model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_5",
-                reset_num_timesteps=False, callback=printing_callback)
-    model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
-    print("################### TRAINING FINISHED ###################")
-    print("################### SB3 EVALUATION STARTED ###################")
-    print(f"Experiment name: {experiment_name}")
-    # Evaluate the agent with sb3
-    mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100, deterministic=False)
-    print("################### SB3 EVALUATION FINISHED ###################")
-    print(f"Experiment name: {experiment_name}")
-    print(f"Mean reward: {mean_reward} \n"
-          f"STD reward:  {std_reward}")
+        printing_callback = AdditionalInfoCallback(verbose=1, experiment_name=experiment_name, env=env,
+                                                   current_difficulty="diff_1")
+        # Corridor 1 training session
+        env.set_difficulty(difficulty_dict["diff_1"])
+        printing_callback.current_difficulty = "diff_1"
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_1",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_1_agent")
+        # Corridor 2 training session
+        env.set_difficulty(difficulty_dict["diff_2"])
+        printing_callback.current_difficulty = "diff_2"
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_2",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_2_agent")
+        # Corridor 3 training session
+        env.set_difficulty(difficulty_dict["diff_3"])
+        printing_callback.current_difficulty = "diff_3"
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_3",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_3_agent")
+        # Corridor 4 training session
+        env.set_difficulty(difficulty_dict["diff_4"])
+        printing_callback.current_difficulty = "diff_4"
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_4",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_4_agent")
+        # Random map training session
+        env.set_difficulty(difficulty_dict["random_diff"])
+        printing_callback.current_difficulty = "random_diff"
+        model.learn(total_timesteps=total_timesteps, tb_log_name="difficulty_5",
+                    reset_num_timesteps=False, callback=printing_callback)
+        model.save(experiment_dir + f"/{experiment_name}_diff_5_agent")
+        print("################### TRAINING FINISHED ###################")
+    else:
+        print(f"Training skipped, only testing for experiment: {experiment_name}.")
     return env
