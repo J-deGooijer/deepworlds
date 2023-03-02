@@ -1,6 +1,5 @@
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def normalize_to_range(value, min_val, max_val, new_min, new_max, clip=False):
@@ -32,36 +31,6 @@ def normalize_to_range(value, min_val, max_val, new_min, new_max, clip=False):
         return np.clip((new_max - new_min) / (max_val - min_val) * (value - max_val) + new_max, new_min, new_max)
     else:
         return (new_max - new_min) / (max_val - min_val) * (value - max_val) + new_max
-
-
-def plot_data(data, x_label, y_label, plot_title, save=False, save_name=None):
-    """
-    Uses matplotlib to plot data.
-
-    :param data: List of data to plot
-    :type data: list
-    :param x_label: Label on x-axis
-    :type x_label: str
-    :param y_label: Label on y-axis
-    :type y_label: str
-    :param plot_title: Plot title
-    :type plot_title: str
-    :param save: Whether to save plot automatically or not, defaults to False
-    :type save: bool, optional
-    :param save_name: Filename of saved plot, defaults to None
-    :type save_name: str, optional
-    """
-    fig, ax = plt.subplots()
-    ax.plot(data)
-    ax.set(xlabel=x_label, ylabel=y_label,
-           title=plot_title)
-    ax.grid()
-    if save:
-        if save_name is not None:
-            fig.savefig(save_name)
-        else:
-            fig.savefig("figure")
-    plt.show()
 
 
 def get_distance_from_target(robot_node, target_node):
