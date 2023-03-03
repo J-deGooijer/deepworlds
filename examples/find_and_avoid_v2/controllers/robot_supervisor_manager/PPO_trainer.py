@@ -130,8 +130,6 @@ class AdditionalInfoCallback(BaseCallback):
         else:
             self.logger.record("rollout/success percentage", self.env.reach_target_count / self.env.reset_count)
 
-        self.env.reset_sum_reward()
-
     def _on_training_end(self) -> None:
         """
         This event is triggered before exiting the `learn()` method.
