@@ -73,7 +73,6 @@ class AdditionalInfoCallback(BaseCallback):
             "target_distance_weight": self.env.reward_weight_dict["dist_tar"],
             "tar_angle_weight": self.env.reward_weight_dict["ang_tar"],
             "dist_sensors_weight": self.env.reward_weight_dict["dist_sensors"],
-            "obs_turning_weight": self.env.reward_weight_dict["obs_turning_reward"],
             "tar_reach_weight": self.env.reward_weight_dict["tar_reach"],
             "not_reach_weight": self.env.reward_weight_dict["not_reach_weight"],
             "collision_weight": self.env.reward_weight_dict["collision"],
@@ -85,7 +84,6 @@ class AdditionalInfoCallback(BaseCallback):
         metric_dict = {
             "rollout/ep_len_mean": 0,
             "rollout/ep_rew_mean": 0,
-            "rollout/normalized reward": 0.0,
             "rollout/collision termination count": 0.0,
             "rollout/reach target count": 0.0,
             "rollout/timeout count": 0.0,
@@ -132,8 +130,6 @@ class AdditionalInfoCallback(BaseCallback):
         else:
             self.logger.record("rollout/success percentage", self.env.reach_target_count / self.env.reset_count)
 
-        normed_reward = self.env.sum_normed_reward / self.model.n_steps  # NOQA
-        self.logger.record("rollout/normalized reward", normed_reward)
         self.env.reset_sum_reward()
 
     def _on_training_end(self) -> None:
@@ -190,7 +186,6 @@ def run(experiment_name, experiment_description="", manual_control=False, only_t
     tar_dis_weight = 2.0
     tar_ang_weight = 2.0
     ds_weight = 1.0
-    obs_turning_weight = 0.0
     tar_reach_weight = 1000.0
     not_reach_weight = 1000.0
     col_weight = 10.0
@@ -218,9 +213,8 @@ def run(experiment_name, experiment_description="", manual_control=False, only_t
                                               tar_d_weight_multiplier=tar_d_weight_multiplier,
                                               tar_a_weight_multiplier=tar_a_weight_multiplier,
                                               target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
-                                              dist_sensors_weight=ds_weight, obs_turning_weight=obs_turning_weight,
-                                              tar_reach_weight=tar_reach_weight, collision_weight=col_weight,
-                                              time_penalty_weight=time_penalty_weight,
+                                              dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
+                                              collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
                                               not_reach_weight=not_reach_weight,
                                               map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                 action_mask_fn=mask_fn  # NOQA

@@ -69,7 +69,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                  max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
                  on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
                  tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
-                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0, obs_turning_weight=1.0,
+                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
                  tar_reach_weight=1.0, not_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
         super().__init__()
@@ -192,12 +192,11 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
-                                   "dist_sensors": dist_sensors_weight, "obs_turning_reward": obs_turning_weight,
-                                   "tar_reach": tar_reach_weight, "not_reach_weight": not_reach_weight,
-                                   "collision": collision_weight, "time_penalty_weight": time_penalty_weight}
+                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
+                                   "not_reach_weight": not_reach_weight, "collision": collision_weight,
+                                   "time_penalty_weight": time_penalty_weight}
         self.tar_d_weight_multiplier = tar_d_weight_multiplier
         self.tar_a_weight_multiplier = tar_a_weight_multiplier
-        self.sum_normed_reward = 0.0  # Used as a metric
         self.collisions_counter = 0
         self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision
         self.trigger_done = False  # Used to trigger the done condition
@@ -246,6 +245,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.min_target_dist = 1
         self.max_target_dist = 1
 
+        # Various metrics and stuff
         self.current_timestep = 0
         self.maximum_episode_steps = maximum_episode_steps
         self.done_reason = ""  # Used to print the reason the episode is done while testing
@@ -469,22 +469,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         dist_sensors_reward /= self.number_of_distance_sensors
         dist_sensors_reward = normalize_to_range(dist_sensors_reward, 0.0, -0.5385, 0.0, -1.0)
 
-        # Penalty for turning towards obstacles, by penalizing decreasing ds values
-        obs_turning_rewards = []
-        for i in range(len(self.distance_sensors)):
-            if self.current_dist_sensors[i] - self.previous_dist_sensors[i] > 0.001:
-                # Increasing ds value, obstacle moving away
-                obs_turning_rewards.append(normalize_to_range(self.current_dist_sensors[i],
-                                                              0.0, self.ds_max[i], 1.0, 0.0))
-            elif self.current_dist_sensors[i] - self.previous_dist_sensors[i] < -0.001:
-                # Decreasing ds value, obstacle moving closer
-                obs_turning_rewards.append(-normalize_to_range(self.current_dist_sensors[i],
-                                                               0.0, self.ds_max[i], 1.0, 0.0))
-        if len(obs_turning_rewards) == 0:
-            obs_turning_reward = 0
-        else:
-            obs_turning_reward = np.mean(obs_turning_rewards)
-
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
         if self.touch_sensor.getValue() == 1.0:  # NOQA
@@ -509,7 +493,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         weighted_dist_tar_reward = self.reward_weight_dict["dist_tar"] * dist_tar_reward
         weighted_ang_tar_reward = self.reward_weight_dict["ang_tar"] * ang_tar_reward
         weighted_dist_sensors_reward = self.reward_weight_dict["dist_sensors"] * dist_sensors_reward
-        weighted_obs_turning_reward = self.reward_weight_dict["obs_turning_reward"] * obs_turning_reward
         weighted_reach_tar_reward = self.reward_weight_dict["tar_reach"] * reach_tar_reward
         weighted_not_reach_tar_reward = self.reward_weight_dict["not_reach_weight"] * not_reach_reward
         weighted_collision_reward = self.reward_weight_dict["collision"] * collision_reward
@@ -519,33 +502,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             weighted_dist_tar_reward = weighted_dist_tar_reward * self.tar_d_weight_multiplier
             weighted_ang_tar_reward = weighted_ang_tar_reward * self.tar_a_weight_multiplier
 
-        # Calculate normed reward and add it to sum to use it as metric
-        weights_sum = sum(self.reward_weight_dict.values())
-        weights_normed = {}
-        for key, val in self.reward_weight_dict.items():
-            weights_normed[key] = (val / weights_sum)
-        self.sum_normed_reward += (weights_normed["dist_tar"] * dist_tar_reward +
-                                   weights_normed["ang_tar"] * ang_tar_reward +
-                                   weights_normed["dist_sensors"] * dist_sensors_reward +
-                                   weights_normed["obs_turning_reward"] * obs_turning_reward +
-                                   weights_normed["tar_reach"] * collision_reward +
-                                   weights_normed["not_reach_weight"] * not_reach_reward +
-                                   weights_normed["collision"] * reach_tar_reward +
-                                   weights_normed["time_penalty_weight"] * time_penalty)
-
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
-                  weighted_obs_turning_reward + weighted_collision_reward +
-                  weighted_reach_tar_reward + weighted_not_reach_tar_reward + weighted_time_penalty)
+                  weighted_collision_reward + weighted_reach_tar_reward + weighted_not_reach_tar_reward +
+                  weighted_time_penalty)
 
         if self.just_reset:
             self.just_reset = False
             return 0.0
         else:
             return reward
-
-    def reset_sum_reward(self):
-        self.sum_normed_reward = 0.0
 
     def is_done(self):
         """
@@ -780,9 +746,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                 self.motor_speeds[1] -= 0.25
         elif action == 4:  # No action
             pass
-
-        # Clip final motor speeds to [-1.0, 1.0] to be sure that motors get valid values
-        self.motor_speeds = np.clip(self.motor_speeds, -1.0, 1.0)
 
         # Apply motor speeds
         self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
