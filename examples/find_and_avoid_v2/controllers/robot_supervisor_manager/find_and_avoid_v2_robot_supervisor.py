@@ -47,8 +47,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     :type tar_angle_weight: float, optional
     :param dist_sensors_weight: The distance sensors reward weight, defaults to 1.0
     :type dist_sensors_weight: float, optional
-    :param obs_turning_weight: The obstacle turning weight, defaults to 1.0
-    :type obs_turning_weight: float, optional
     :param tar_reach_weight: The target reach reward weight, defaults to 1.0
     :type tar_reach_weight: float, optional
     :param collision_weight: The collision reward weight, defaults to 1.0
@@ -764,7 +762,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             wall_node.getField("translation").setSFVec3f(starting_pos)
             wall_node.getField("rotation").setSFRotation([0, 0, 1, -1.5708])
 
-    def randomize_map(self, type_="random", max_distance_allowed=2):
+    def randomize_map(self, type_="random"):
         """
         Randomizes the obstacles on the map, by first removing all the objects and emptying the grid map.
         Then, based on the type_ argument provided, places the set number of obstacles in various random configurations.
