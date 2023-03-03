@@ -47,6 +47,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     :type tar_angle_weight: float, optional
     :param dist_sensors_weight: The distance sensors reward weight, defaults to 1.0
     :type dist_sensors_weight: float, optional
+    :param smoothness_weight: The smoothness reward weight, defaults to 1.0
+    :type smoothness_weight: float, optional
     :param tar_reach_weight: The target reach reward weight, defaults to 1.0
     :type tar_reach_weight: float, optional
     :param collision_weight: The collision reward weight, defaults to 1.0
@@ -67,7 +69,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                  max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
                  on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
                  tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
-                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0,
+                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0, smoothness_weight=1.0,
                  tar_reach_weight=1.0, not_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
         super().__init__()
@@ -187,12 +189,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.current_rotation = 0.0
+        self.previous_rotation = 0.0
+        self.current_rotation_change = 0.0
+        self.previous_rotation_change = 0.0
 
         # Dictionary holding the weights for the various reward components
         self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
                                    "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
                                    "not_reach_weight": not_reach_weight, "collision": collision_weight,
-                                   "time_penalty_weight": time_penalty_weight}
+                                   "time_penalty_weight": time_penalty_weight, "smoothness_weight": smoothness_weight}
         self.tar_d_weight_multiplier = tar_d_weight_multiplier
         self.tar_a_weight_multiplier = tar_a_weight_multiplier
         self.collisions_counter = 0
@@ -357,9 +363,9 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         obs = [normalize_to_range(self.current_tar_d, 0.0, self.initial_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
                round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.00128, 0.00128, -1.0, 1.0,
-                                        clip=True), 4),  # TODO Test if this is crucial
+                                        clip=True), 4),
                round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                        clip=True), 4),  # TODO Test if this is crucial
+                                        clip=True), 4),
                self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]  # NOQA
 
         if self.add_action_to_obs:
@@ -409,8 +415,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         - Distance to target reward is calculated based on the minimum distance to the target achieved for this episode.
         The agent is rewarded with a value of 1.0 every time the it decreases the minimum distance to the target,
         similar to the pit escape problem.
-        (- Distance to target reward is calculated based on the latest change of the distance to target, which is
-        normalized to [-1.0, 1.0]) TODO Fix this
         - Angle to target reward is calculated based on the latest change of the angle to target, if positive and
         over a small threshold, the reward is 1.0, if negative and under a small threshold, the reward is -1.0
         - Reach target reward is 0.0, unless the current distance to target is under the on_target_threshold when it
@@ -437,9 +441,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             self.previous_tar_d = self.current_tar_d
             self.previous_tar_a = self.current_tar_a
 
-        # TODO check whether the current reward added together with the commented continuous reward helps out
-        # dist_tar_reward = normalize_to_range(self.previous_tar_d - self.current_tar_d,
-        #                                      -0.0013, 0.0013, -1.0, 1.0, clip=True)
         dist_tar_reward = 0.0
         if self.current_tar_d < self.min_distance_reached:
             dist_tar_reward = 1.0
@@ -486,6 +487,12 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             not_reach_reward = normalize_to_range(get_distance_from_target(self.robot, self.target),
                                                   0.0, self.initial_target_distance, 0.0, -1.0)
 
+        smoothness_reward = 0.0
+        if abs(self.current_rotation - self.previous_rotation) > 0.00016928:
+            if not (0.0 < self.current_rotation_change * self.previous_rotation_change or 6.0 < abs(
+                    self.current_rotation_change - self.previous_rotation_change) < 7.0):
+                smoothness_reward = -1.0
+
         ################################################################################################################
         # Total reward calculation
         weighted_dist_tar_reward = self.reward_weight_dict["dist_tar"] * dist_tar_reward
@@ -495,6 +502,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         weighted_not_reach_tar_reward = self.reward_weight_dict["not_reach_weight"] * not_reach_reward
         weighted_collision_reward = self.reward_weight_dict["collision"] * collision_reward
         weighted_time_penalty = self.reward_weight_dict["time_penalty_weight"] * time_penalty
+        weighted_smoothness_reward = self.reward_weight_dict["smoothness_weight"] * smoothness_reward
 
         if weighted_dist_sensors_reward != 0:
             weighted_dist_tar_reward = weighted_dist_tar_reward * self.tar_d_weight_multiplier
@@ -503,7 +511,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
                   weighted_collision_reward + weighted_reach_tar_reward + weighted_not_reach_tar_reward +
-                  weighted_time_penalty)
+                  weighted_time_penalty + weighted_smoothness_reward)
 
         if self.just_reset:
             self.just_reset = False
@@ -549,6 +557,10 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_a = 0.0
         self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.current_rotation = 0.0
+        self.previous_rotation = 0.0
+        self.current_rotation_change = 0.0
+        self.previous_rotation_change = 0.0
         self.collisions_counter = 0
 
         # Set robot random rotation
@@ -616,10 +628,17 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.previous_tar_d = self.current_tar_d
         self.previous_tar_a = self.current_tar_a
         self.previous_dist_sensors = self.current_dist_sensors
+        self.previous_rotation = self.current_rotation
+        self.previous_rotation_change = self.current_rotation_change
 
         # Target distance and angle
         self.current_tar_d = get_distance_from_target(self.robot, self.target)
         self.current_tar_a = get_angle_from_target(self.robot, self.target)
+
+        # Get current rotation
+        self.current_rotation = abs(self.robot.getField('rotation').getSFRotation()[3] * np.sign(
+            self.robot.getField('rotation').getSFRotation()[2]) + np.pi)
+        self.current_rotation_change = self.current_rotation - self.previous_rotation
 
         # Get all distance sensor values
         self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
