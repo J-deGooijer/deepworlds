@@ -262,7 +262,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
         :param difficulty_dict: A dictionary containing the difficulty information, e.g.
             {"type": "t", "number_of_obstacles": X, "min_target_dist": Y, "max_target_dist": Z}, where type can be
-            "random", "box" or "corridor".
+            "random" or "corridor".
         :type difficulty_dict: dict
         :param key: The key of the difficulty dictionary, if provided, the method prints it along with the
             difficulty dict, defaults to None
@@ -568,20 +568,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                 if self.path_to_target is not None:
                     self.path_to_target = self.path_to_target[1:]  # Remove starting node
                     break
-        elif self.current_difficulty["type"] == "box":
-            while True:
-                max_distance_allowed = 1
-                # Randomize robot and obstacle positions
-                self.randomize_map("box", max_distance_allowed=max_distance_allowed)
-                self.simulationResetPhysics()
-                # Set the target in a valid position and find a path to it
-                # and repeat until a reachable position has been found for the target
-                self.path_to_target = self.get_random_path(add_target=False)
-                if self.path_to_target is not None:
-                    self.path_to_target = self.path_to_target[1:]  # Remove starting node
-                    break
-                max_distance_allowed += 1
-
         elif self.current_difficulty["type"] == "corridor":
             while True:
                 max_distance_allowed = 1
@@ -784,15 +770,12 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         Then, based on the type_ argument provided, places the set number of obstacles in various random configurations.
 
         - "random": places the number_of_obstacles in free positions on the map and randomizes their rotation
-        - "box": sets the target at a distance from the robot and then places obstacles around it, boxing it in
         - "corridor": creates a corridor placing the robot at the start and the target at a distance along the corridor.
             It then places the obstacles on each row along the corridor between the target and the robot, making sure
             there is a valid path, i.e. consecutive rows should have free cells either diagonally or in the same column
 
-        :param type_: The type of randomization, either "random", "box" or "corridor", defaults to "random"
+        :param type_: The type of randomization, either "random" or "corridor", defaults to "random"
         :type type_: str, optional
-        :param max_distance_allowed: This is used for "box" randomization, defaults to 2
-        :type max_distance_allowed: int, optional
         """
         self.remove_objects()
         self.map.empty()
@@ -802,21 +785,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             self.map.add_random(self.robot, robot_z)  # Add robot in a random position
             for obs_node in random.sample(self.all_obstacles, self.number_of_obstacles):
                 self.map.add_random(obs_node)
-                obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
-        elif type_ == "box":
-            self.map.add_random(self.robot, robot_z)  # Add robot in a random position
-            robot_coordinates = self.map.find_by_name("robot")
-            # Keep trying to add target near robot at specified min-max distances
-            while not self.map.add_near(robot_coordinates[0], robot_coordinates[1],
-                                        self.target,
-                                        min_distance=self.min_target_dist, max_distance=self.max_target_dist):
-                pass
-            # Insert obstacles around target
-            target_pos = self.map.find_by_name("target")[0:2]
-            for obs_node in random.sample(self.all_obstacles, self.number_of_obstacles):
-                while not self.map.add_near(target_pos[0], target_pos[1], obs_node, min_distance=1,
-                                            max_distance=max_distance_allowed):
-                    max_distance_allowed += 1
                 obs_node.getField("rotation").setSFRotation([0.0, 0.0, 1.0, random.uniform(-np.pi, np.pi)])
         elif type_ == "corridor":
             # Add robot to starting position
