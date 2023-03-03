@@ -77,6 +77,7 @@ class AdditionalInfoCallback(BaseCallback):
             "not_reach_weight": self.env.reward_weight_dict["not_reach_weight"],
             "collision_weight": self.env.reward_weight_dict["collision"],
             "time_penalty_weight": self.env.reward_weight_dict["time_penalty_weight"],
+            "smoothness_weight": self.env.reward_weight_dict["smoothness_weight"],
 
         }
         # define the metrics that will appear in the `HPARAMS` Tensorboard tab by referencing their tag
@@ -188,6 +189,7 @@ def run(experiment_name, experiment_description="", manual_control=False, only_t
     not_reach_weight = 1000.0
     col_weight = 10.0
     time_penalty_weight = 0.1
+    smoothness_weight = 0.0
 
     net_arch = dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
     # Map setup
@@ -213,7 +215,7 @@ def run(experiment_name, experiment_description="", manual_control=False, only_t
                                               target_distance_weight=tar_dis_weight, tar_angle_weight=tar_ang_weight,
                                               dist_sensors_weight=ds_weight, tar_reach_weight=tar_reach_weight,
                                               collision_weight=col_weight, time_penalty_weight=time_penalty_weight,
-                                              not_reach_weight=not_reach_weight,
+                                              not_reach_weight=not_reach_weight, smoothness_weight=smoothness_weight,
                                               map_width=map_w, map_height=map_h, cell_size=cell_size, seed=seed),
                 action_mask_fn=mask_fn  # NOQA
             )
