@@ -258,6 +258,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.collision_termination_count = 0
         self.timeout_count = 0
         self.initial_target_distance = 0.0
+        self.initial_target_angle = 0.0
         self.min_distance_reached = float("inf")
 
     def set_difficulty(self, difficulty_dict, key=None):
@@ -438,19 +439,19 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         """
         # Reward for decreasing distance to the target
         if self.just_reset:
-            self.previous_tar_d = self.current_tar_d
-            self.previous_tar_a = self.current_tar_a
+            self.previous_tar_d = self.current_tar_d = self.initial_target_distance
+            self.previous_tar_a = self.current_tar_a = self.initial_target_angle
 
         dist_tar_reward = 0.0
-        if self.current_tar_d < self.min_distance_reached:
+        if self.current_tar_d - self.min_distance_reached < -0.001:
             dist_tar_reward = 1.0
             self.min_distance_reached = self.current_tar_d
 
         # Reward for decreasing angle to the target
         ang_tar_reward = 0.0
-        if (abs(self.previous_tar_a) - abs(self.current_tar_a)) > 0.001:
+        if abs(self.previous_tar_a) - abs(self.current_tar_a) > 0.01:
             ang_tar_reward = 1.0
-        elif (abs(self.previous_tar_a) - abs(self.current_tar_a)) < -0.001:
+        elif abs(self.previous_tar_a) - abs(self.current_tar_a) < -0.01:
             ang_tar_reward = -1.0
 
         # Reward for reaching the target
@@ -488,7 +489,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                                                   0.0, self.initial_target_distance, 0.0, -1.0)
 
         smoothness_reward = 0.0
-        if abs(self.current_rotation - self.previous_rotation) > 0.00016928:
+        if abs(self.current_rotation - self.previous_rotation) > 0.00016928 and dist_sensors_reward == 0.0:
             if not (0.0 < self.current_rotation_change * self.previous_rotation_change or 6.0 < abs(
                     self.current_rotation_change - self.previous_rotation_change) < 7.0):
                 smoothness_reward = -1.0
@@ -608,7 +609,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             self.timeout_count += 1
         self.done_reason = ""
         self.initial_target_distance = get_distance_from_target(self.robot, self.target)
-        self.min_distance_reached = float("inf")
+        self.initial_target_angle = get_angle_from_target(self.robot, self.target)
+        self.min_distance_reached = self.initial_target_distance
         return self.obs_list
 
     def get_default_observation(self):
