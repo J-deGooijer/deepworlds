@@ -139,11 +139,9 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         # Set up sensors
         self.distance_sensors = []
         self.ds_max = []
-        # self.ds_min = []
         self.dist_sensors_threshold = dist_sensors_threshold
         self.ds_type = ds_type
         self.ds_noise = ds_noise
-        # self.ds_nodes = []
         # Loop through the ds_group node to set max sensor values and initialize the devices and set the type
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
@@ -162,9 +160,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                     ds_node.getField("lookupTable").setMFVec3f(1, [0.25 * max_ds_range / 100.0, 0.25 * max_ds_range,
                                                                    self.ds_noise])
                     ds_node.getField("type").setSFString(self.ds_type)
-                    # self.ds_nodes.append(ds_node)
                     self.ds_max.append(max_ds_range)  # NOQA
-                    # self.ds_min.append(ds_node.getField("lookupTable").getMFVec3f(0)[0] * 100)  # NOQA
 
         # Touch sensor is used to determine when the robot collides with an obstacle
         self.touch_sensor = self.getDevice("touch sensor")
