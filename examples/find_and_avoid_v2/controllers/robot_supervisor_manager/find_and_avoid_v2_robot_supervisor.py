@@ -439,7 +439,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             self.previous_tar_a = self.current_tar_a = self.initial_target_angle
 
         dist_tar_reward = 0.0
-        if self.current_tar_d - self.min_distance_reached < -0.001:
+        if round(self.current_tar_d, 4) - round(self.min_distance_reached, 4) < 0.0:
             dist_tar_reward = 1.0
             self.min_distance_reached = self.current_tar_d
 
