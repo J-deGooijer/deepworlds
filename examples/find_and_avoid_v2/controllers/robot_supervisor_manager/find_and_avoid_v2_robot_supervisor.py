@@ -257,6 +257,13 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.initial_target_angle = 0.0
         self.min_distance_reached = float("inf")
 
+    def set_reward_weight_dict(self, target_distance_weight, tar_angle_weight, dist_sensors_weight, tar_reach_weight,
+                               not_reach_weight, collision_weight, time_penalty_weight, smoothness_weight):
+        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
+                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
+                                   "not_reach_weight": not_reach_weight, "collision": collision_weight,
+                                   "time_penalty_weight": time_penalty_weight, "smoothness_weight": smoothness_weight}
+
     def set_difficulty(self, difficulty_dict, key=None):
         """
         Sets the difficulty and corresponding variables with a difficulty dictionary provided.
