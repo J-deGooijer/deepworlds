@@ -492,10 +492,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                                                   0.0, self.initial_target_distance, 0.0, -1.0)
 
         smoothness_reward = 0.0
-        if abs(self.current_rotation - self.previous_rotation) > 0.00016928 and dist_sensors_reward == 0.0:
-            if not (0.0 < self.current_rotation_change * self.previous_rotation_change or 6.0 < abs(
-                    self.current_rotation_change - self.previous_rotation_change) < 7.0):
-                smoothness_reward = -1.0
+        if self.current_rotation_change * self.previous_rotation_change < 0.0 and dist_sensors_reward == 0.0:
+            smoothness_reward = -1.0
 
         ################################################################################################################
         # Total reward calculation
@@ -641,9 +639,19 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.current_tar_a = get_angle_from_target(self.robot, self.target)
 
         # Get current rotation
-        self.current_rotation = abs(self.robot.getField('rotation').getSFRotation()[3] * np.sign(
-            self.robot.getField('rotation').getSFRotation()[2]) + np.pi)
-        self.current_rotation_change = self.current_rotation - self.previous_rotation
+        # Fix rotation vector, because Webots randomly flips Z
+        temp_rot = self.robot.getField("rotation").getSFRotation()
+        if round(temp_rot[2]) == -1.0:
+            temp_rot[2] = 1.0
+            temp_rot[3] *= -1.0
+            self.robot.getField("rotation").setSFRotation(temp_rot)
+
+        # Get current rotation change
+        self.current_rotation = self.robot.getField("rotation").getSFRotation()[3]
+        if self.current_rotation*self.previous_rotation < 0.0:
+            self.current_rotation_change = self.previous_rotation_change
+        else:
+            self.current_rotation_change = self.current_rotation - self.previous_rotation
 
         # Get all distance sensor values
         self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
