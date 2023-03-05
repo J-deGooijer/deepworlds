@@ -25,6 +25,8 @@ def run(experiment_name, env, deterministic):
 
     seed = 2
     env.set_maximum_episode_steps(env.maximum_episode_steps * 2)
+    # Set default reward weights to make rewards comparable
+    env.set_reward_weight_dict(2, 2, 1, 1000, 1000, 10, 0.1, 0.0)
     experiment_dir = f"./experiments/{experiment_name}"
     load_path = experiment_dir + f"/{experiment_name}_diff_5_agent.zip"
 
