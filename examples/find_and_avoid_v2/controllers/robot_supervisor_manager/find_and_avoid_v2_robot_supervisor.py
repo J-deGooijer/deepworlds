@@ -10,6 +10,12 @@ from controller import Supervisor, Keyboard
 class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     """
     TODO *Problem description*
+
+    Distance sensors from left to right:
+    Sensor indices/positions:   [0,   1,    2,    3,     4,    5,     6,      7,     8,    9,     10,   11,   12]
+    Frontal sensors slice:                              [4:         frontal         :9]
+    Left/right sensors slices:  [0:         left        :5]                         [8:        right         :13]
+
     :param description: A description that can be saved in an exported file
     :type description: str
     :param maximum_episode_steps: The maximum steps per episode before timeout reset
@@ -20,41 +26,38 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     :type seconds_window: int, optional
     :param add_action_to_obs: Whether to add the latest action one-hot vector to the observation, defaults to True
     :type add_action_to_obs: bool, optional
-    :param max_ds_range: The maximum range of the distance sensors in cm, defaults to 100.0
-    :type max_ds_range: float, optional
     :param reset_on_collisions: On how many steps of collisions to reset, defaults to 0
     :type reset_on_collisions: int, optional
     :param manual_control: Whether to override agent actions with user keyboard control, defaults to False
     :type manual_control: bool, optional
     :param on_target_threshold: The threshold under which the robot is considered on target, defaults to 0.1
     :type on_target_threshold: float, optional
-    :param dist_sensors_threshold: The distance sensor value threshold under which masking occurs and ds rewards are
-        calculated, defaults to 10.0
-    :type dist_sensors_threshold: float, optional
+    :param max_ds_range: The maximum range of the distance sensors in cm, defaults to 100.0
+    :type max_ds_range: float, optional
     :param ds_type: The type of distance sensors to use, can be either "generic" or "sonar", defaults to "generic"
     :type ds_type: str, optional
-    :param ds_noise: The percentage of gaussian noise to add to the distance sensors, defaults to 0.05
+    :param ds_n_rays: The number of rays per sensor, defaults to 1
+    :type ds_n_rays: int, optional
+    :param ds_aperture: The angle at which the rays of each sensor are spread, defaults to 0.1 radians
+    :type ds_aperture: float, optional
+    :param ds_resolution: Minimum resolution of the sensors, the minimum change it can read, defaults to -1 (infinite)
+    :type ds_resolution: float, optional
+    :param ds_noise: The percentage of gaussian noise to add to the distance sensors, defaults to 0.0
     :type ds_noise: float, optional
-    :param tar_d_weight_multiplier: The multiplier to apply on the target distance reward, when the distance sensors
-        values are under the threshold, defaults to 1.0
-    :type tar_d_weight_multiplier: float, optional
-    :param tar_a_weight_multiplier: The multiplier to apply on the target angle reward, when the distance sensors
-        values are under the threshold, defaults to 1.0
-    :type tar_a_weight_multiplier: float, optional
     :param target_distance_weight: The target distance reward weight, defaults to 1.0
     :type target_distance_weight: float, optional
-    :param tar_angle_weight: The target angle reward weight, defaults to 1.0
-    :type tar_angle_weight: float, optional
+    :param target_angle_weight: The target angle reward weight, defaults to 1.0
+    :type target_angle_weight: float, optional
     :param dist_sensors_weight: The distance sensors reward weight, defaults to 1.0
     :type dist_sensors_weight: float, optional
     :param smoothness_weight: The smoothness reward weight, defaults to 1.0
     :type smoothness_weight: float, optional
-    :param tar_reach_weight: The target reach reward weight, defaults to 1.0
-    :type tar_reach_weight: float, optional
+    :param speed_weight: The speed reward weight, defaults to 1.0
+    :type speed_weight: float, optional
+    :param target_reach_weight: The target reach reward weight, defaults to 1.0
+    :type target_reach_weight: float, optional
     :param collision_weight: The collision reward weight, defaults to 1.0
     :type collision_weight: float, optional
-    :param time_penalty_weight: The time penalty reward weight, defaults to 1.0
-    :type time_penalty_weight: float, optional
     :param map_width: The map width, defaults to 7
     :type map_width: int, optional
     :param map_height: The map height, defaults to 7
@@ -66,13 +69,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     """
 
     def __init__(self, description, maximum_episode_steps, step_window=1, seconds_window=0, add_action_to_obs=True,
-                 max_ds_range=100.0, reset_on_collisions=0, manual_control=False,
-                 on_target_threshold=0.1, dist_sensors_threshold=10.0, ds_type="generic", ds_noise=0.05,
-                 tar_d_weight_multiplier=1.0, tar_a_weight_multiplier=1.0,
-                 target_distance_weight=1.0, tar_angle_weight=1.0, dist_sensors_weight=1.0, smoothness_weight=1.0,
-                 tar_reach_weight=1.0, not_reach_weight=1.0, collision_weight=1.0, time_penalty_weight=1.0,
+                 reset_on_collisions=0, manual_control=False, on_target_threshold=0.1,
+                 max_ds_range=100.0, ds_type="generic", ds_n_rays=1, ds_aperture=0.1,
+                 ds_resolution=-1, ds_noise=0.0,
+                 target_distance_weight=1.0, target_angle_weight=1.0, dist_sensors_weight=1.0,
+                 target_reach_weight=1.0, collision_weight=1.0, smoothness_weight=1.0, speed_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
         super().__init__()
+
+        ################################################################################################################
+        # General
         self.seed = seed
         if seed is not None:
             random.seed(seed)
@@ -88,6 +94,9 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.keyboard = Keyboard()
         self.keyboard.enable(self.timestep)
 
+        ################################################################################################################
+        # Robot setup
+
         # Set up various robot components
         self.robot = self.getSelf()
         self.number_of_distance_sensors = 13  # Fixed according to ds that exist on robot
@@ -102,8 +111,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.seconds_window = seconds_window
         self.obs_list = []
         # Set up observation low values
-        # Distance to target, angle to target, distance change, angle change, motor speed left, motor speed right, touch
-        single_obs_low = [0.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.0]
+        # Distance to target, angle to target, motor speed left, motor speed right, touch left, touch right
+        single_obs_low = [0.0, -1.0, -1.0, -1.0, 0.0, 0.0]
         # Add action one-hot vector
         if self.add_action_to_obs:
             single_obs_low.extend([0.0 for _ in range(self.action_space.n)])
@@ -111,7 +120,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         single_obs_low.extend([0.0 for _ in range(self.number_of_distance_sensors)])
 
         # Set up corresponding observation high values
-        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        single_obs_high = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         if self.add_action_to_obs:
             single_obs_high.extend([1.0 for _ in range(self.action_space.n)])
         single_obs_high.extend([1.0 for _ in range(self.number_of_distance_sensors)])
@@ -139,10 +148,17 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         # Set up sensors
         self.distance_sensors = []
         self.ds_max = []
-        self.dist_sensors_threshold = dist_sensors_threshold
         self.ds_type = ds_type
+        self.ds_n_rays = ds_n_rays
+        self.ds_aperture = ds_aperture
+        self.ds_resolution = ds_resolution
         self.ds_noise = ds_noise
-        # Loop through the ds_group node to set max sensor values and initialize the devices and set the type
+        # The minimum distance sensor thresholds, under which there is an obstacle obstructing forward movement
+        # Note that these values are highly dependent on how the sensors are placed on the robot
+        self.ds_thresholds = [8.0, 8.0, 8.0, 10.15, 14.7, 13.15,
+                              12.7,
+                              13.15, 14.7, 10.15, 8.0, 8.0, 8.0]
+        # Loop through the ds_group node to set max sensor values, initialize the devices, set the type, etc.
         robot_children = self.robot.getField("children")
         for childNodeIndex in range(robot_children.getCount()):
             robot_child = robot_children.getMFNode(childNodeIndex)  # NOQA
@@ -160,11 +176,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                     ds_node.getField("lookupTable").setMFVec3f(1, [0.25 * max_ds_range / 100.0, 0.25 * max_ds_range,
                                                                    self.ds_noise])
                     ds_node.getField("type").setSFString(self.ds_type)
+                    ds_node.getField("numberOfRays").setSFInt32(self.ds_n_rays)
+                    ds_node.getField("aperture").setSFFloat(self.ds_aperture)
+                    ds_node.getField("resolution").setSFFloat(self.ds_resolution)
                     self.ds_max.append(max_ds_range)  # NOQA
 
-        # Touch sensor is used to determine when the robot collides with an obstacle
-        self.touch_sensor = self.getDevice("touch sensor")
-        self.touch_sensor.enable(self.timestep)  # NOQA
+        # Touch sensors are used to determine when the robot collides with an obstacle
+        self.touch_sensor_left = self.getDevice("touch sensor left")
+        self.touch_sensor_left.enable(self.timestep)  # NOQA
+        self.touch_sensor_right = self.getDevice("touch sensor right")
+        self.touch_sensor_right.enable(self.timestep)  # NOQA
 
         # Set up motors
         self.left_motor = self.getDevice("left_wheel")
@@ -176,32 +197,53 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.target = self.getFromDef("TARGET")
         self.target.getField("rotation").setSFRotation([0.0, 0.0, 1.0, 0.0])
 
-        # Set up misc
+        ################################################################################################################
+        # Set up miscellaneous
+        # Various robot and target metrics, for the current step and the previous step
         self.on_target_threshold = on_target_threshold  # Threshold that defines whether robot is considered "on target"
-        # Various metrics, for the current step and the previous step
-        self.current_tar_d = 0.0
+        self.initial_target_distance = 0.0
+        self.initial_target_angle = 0.0
+        self.current_tar_d = 0.0  # Distance to target
         self.previous_tar_d = 0.0
-        self.current_tar_a = 0.0
+        self.current_tar_a = 0.0  # Angle to target in respect to the facing angle of the robot
         self.previous_tar_a = 0.0
-        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]  # Latest distance sensor values
         self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        self.current_rotation = 0.0
+        self.current_touch_sensors = [0.0, 0.0]
+        self.current_position = [0, 0]  # World position
+        self.previous_position = [0, 0]
+        self.current_rotation = 0.0  # Facing angle
         self.previous_rotation = 0.0
-        self.current_rotation_change = 0.0
+        self.current_rotation_change = 0.0  # Latest facing angle change
         self.previous_rotation_change = 0.0
 
-        # Dictionary holding the weights for the various reward components
-        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
-                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
-                                   "not_reach_weight": not_reach_weight, "collision": collision_weight,
-                                   "time_penalty_weight": time_penalty_weight, "smoothness_weight": smoothness_weight}
-        self.tar_d_weight_multiplier = tar_d_weight_multiplier
-        self.tar_a_weight_multiplier = tar_a_weight_multiplier
-        self.collisions_counter = 0
-        self.reset_on_collisions = reset_on_collisions  # Whether to reset on collision
+        # Various episode/training metrics, etc.
+        self.current_timestep = 0
+        self.collisions_counter = 0  # Counter of collisions during the episode
+        self.reset_on_collisions = reset_on_collisions  # Upper limit of number of collisions before reset
+        self.maximum_episode_steps = maximum_episode_steps  # Steps before timeout
+        self.done_reason = ""  # Used to terminate episode and print the reason the episode is done
+        self.reset_count = -1  # How many resets of the env overall, -1 to disregard the very first reset
+        self.reach_target_count = 0  # How many times the target was reached
+        self.collision_termination_count = 0  # How many times an episode was terminated due to collisions
+        self.timeout_count = 0  # How many times an episode timed out
+        self.min_distance_reached = float("inf")  # The current episode minimum distance to target reached
+        self.min_dist_reached_list = []  # Used to store latest minimum distances reached, used as training metric
+        self.smoothness_list = []  # Used to store the episode smoothness rewards, used as training metric
+        self.episode_accumulated_reward = 0.0  # The reward accumulated in the current episode
+        self.touched_obstacle_left = False
+        self.touched_obstacle_right = False
+        self.mask = [True for _ in range(self.action_space.n)]  # The action mask
         self.trigger_done = False  # Used to trigger the done condition
         self.just_reset = True  # Whether the episode was just reset
 
+        # Dictionary holding the weights for the various reward components
+        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": target_angle_weight,
+                                   "dist_sensors": dist_sensors_weight, "tar_reach": target_reach_weight,
+                                   "collision": collision_weight, "smoothness_weight": smoothness_weight,
+                                   "speed_weight": speed_weight}
+
+        ################################################################################################################
         # Map stuff
         self.map_width, self.map_height = map_width, map_height
         if cell_size is None:
@@ -239,30 +281,26 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                  f"Number of obstacles is set to {len(self.all_obstacles)}.\n ")
             self.number_of_obstacles = len(self.all_obstacles)
 
-        # Path to target stuff
         self.path_to_target = []  # The map cells of the path
         # The min and max (manhattan) distances of the target length allowed, set from set_difficulty method
         self.min_target_dist = 1
         self.max_target_dist = 1
 
-        # Various metrics and stuff
-        self.current_timestep = 0
-        self.maximum_episode_steps = maximum_episode_steps
-        self.done_reason = ""  # Used to print the reason the episode is done while testing
-        self.reset_count = -1
-        self.reach_target_count = 0
-        self.collision_termination_count = 0
-        self.timeout_count = 0
-        self.initial_target_distance = 0.0
-        self.initial_target_angle = 0.0
-        self.min_distance_reached = float("inf")
+    def set_reward_weight_dict(self, target_distance_weight, target_angle_weight, dist_sensors_weight,
+                               target_reach_weight, collision_weight, smoothness_weight, speed_weight):
+        """
+        Utility function to help change the reward weight dictionary on runtime.
+        """
+        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": target_angle_weight,
+                                   "dist_sensors": dist_sensors_weight, "tar_reach": target_reach_weight,
+                                   "collision": collision_weight, "smoothness_weight": smoothness_weight,
+                                   "speed_weight": speed_weight}
 
-    def set_reward_weight_dict(self, target_distance_weight, tar_angle_weight, dist_sensors_weight, tar_reach_weight,
-                               not_reach_weight, collision_weight, time_penalty_weight, smoothness_weight):
-        self.reward_weight_dict = {"dist_tar": target_distance_weight, "ang_tar": tar_angle_weight,
-                                   "dist_sensors": dist_sensors_weight, "tar_reach": tar_reach_weight,
-                                   "not_reach_weight": not_reach_weight, "collision": collision_weight,
-                                   "time_penalty_weight": time_penalty_weight, "smoothness_weight": smoothness_weight}
+    def set_maximum_episode_steps(self, new_value):
+        """
+        This is required to be able to change the value of timeout steps for sb3 to register it.
+        """
+        self.maximum_episode_steps = new_value
 
     def set_difficulty(self, difficulty_dict, key=None):
         """
@@ -289,65 +327,136 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         """
         Returns the mask for the current state. The mask is a list of bools where each element corresponds to an
         action, and if the bool is False the corresponding action is masked, i.e. disallowed.
-        - Backward movement is disallowed unless there is an obstacle detected through the distance sensors, under the
-        distance sensor threshold.
-        - Left and right movement is disallowed depending on the values of the side-most distance sensors.
-        - Forward movement is disallowed when the forward-facing sensors are under specific thresholds for each.
+        Action masking allows the agent to perform certain actions under certain conditions, disallowing illogical
+        decisions.
+
+        Mask is modified first by the touch sensors, and if no collisions are detected, secondly by
+        the distance sensors.
+
+        The action mapping is as follows:
+        - 0: Increase both motor speeds, forward action
+        - 1: Decrease both motor speeds, backward action
+        = 2: Increase right motor speed, decrease left motor speed, turn left
+        - 3: Increase left motor speed, decrease right motor speed, turn right
+        - 4: No change in motor speeds, no action
 
         :return: The action mask list of bools
         :rtype: list of booleans
         """
-        # Actions: increase left motor speed, increase right motor speed,
-        # decrease left motor speed, decrease right motor speed, keep same speeds (no action)
-        mask = [True for _ in range(self.action_space.n)]
-        # Mask decrease actions that will cause the agent to move backwards by default
+        self.mask = [True for _ in range(self.action_space.n)]
+        # Mask backward action that will cause the agent to move backwards by default
         if self.motor_speeds[0] <= 0.0 and self.motor_speeds[1] <= 0.0:
-            mask[2] = False
-            mask[3] = False
+            self.mask[1] = False
 
-        if self.current_dist_sensors[0] < 1.0 or self.current_dist_sensors[1] < 3.0:
-            # Mask increase right action when we get a minimum value on the left-most sensors
-            mask[1] = False
-        if self.current_dist_sensors[-1] < 1.0 or self.current_dist_sensors[-2] < 3.0:
-            # Mask increase left action when we get a minimum value on the right-most sensors
-            mask[0] = False
-
-        # Unmask backward action if any sensor is reading a small value
+        # Create various flag lists for the distance sensors
+        # Whether any sensor is reading under its minimum threshold, and calculate and store how much
+        reading_under_threshold = [0.0 for _ in range(self.number_of_distance_sensors)]
+        # Whether there is any obstacle under half the max range of the distance sensors
+        detecting_obstacle = [False for _ in range(self.number_of_distance_sensors)]
+        # Whether there is an obstacle really close, i.e. under half the minimum threshold, in front
+        front_under_half_threshold = False
         for i in range(len(self.current_dist_sensors)):
-            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
-                mask[2] = True
-                mask[3] = True
-                break
+            if self.current_dist_sensors[i] <= self.ds_max[i] / 2:
+                detecting_obstacle[i] = True
+            # Sensor is reading under threshold, store how much under threshold it reads
+            if self.current_dist_sensors[i] < self.ds_thresholds[i]:
+                reading_under_threshold[i] = self.ds_thresholds[i] - self.current_dist_sensors[i]
+                # Frontal sensor (index 4 to 8) is reading under half threshold
+                if i in [4, 5, 6, 7, 8] and self.current_dist_sensors[i] < (self.ds_thresholds[i] / 2):
+                    front_under_half_threshold = True
+        # Split left and right slices to use later
+        reading_under_threshold_left = reading_under_threshold[0:5]
+        reading_under_threshold_right = reading_under_threshold[8:13]
 
-        # Mask increasing of speed actions when there is a reading below a threshold in any of the
-        # forward-facing sensors to avoid unnecessary collisions
-        forward_facing_sensor_thresholds = [0.0, 3.0, 5.0, 4.5, 3.5, 1.5, 1.0, 1.5, 3.5, 4.5, 5.0, 3.0, 0.0]
-        for i in range(1, len(self.current_dist_sensors) - 1):
-            if self.current_dist_sensors[i] < forward_facing_sensor_thresholds[i]:
-                mask[0] = False
-                mask[1] = False
-                break
-        return mask
+        # First modify mask using the touch sensors as they are more important than distance sensors
+        # Unmask backward and mask forward if a touch sensor is detecting collision
+        if any(self.current_touch_sensors):
+            self.mask[0] = False
+            self.mask[1] = True
+            # Set flags to keep masking/unmasking until robot is clear of obstacles
+            # Distinguish between left and right touch
+            if self.current_touch_sensors[0]:
+                self.touched_obstacle_left = True
+            if self.current_touch_sensors[1]:
+                self.touched_obstacle_right = True
+        # Not touching obstacles and can't detect obstacles with distance sensors,
+        # can stop masking forward and unmasking backwards
+        elif not any(reading_under_threshold):
+            self.touched_obstacle_left = False
+            self.touched_obstacle_right = False
+
+        # Keep masking forward and unmasking backwards as long as a touched_obstacle flag is True
+        if self.touched_obstacle_left or self.touched_obstacle_right:
+            self.mask[0] = False
+            self.mask[1] = True
+
+            if self.touched_obstacle_left and not self.touched_obstacle_right:
+                # Touched on left, mask left action, unmask right action
+                self.mask[2] = False
+                self.mask[3] = True
+            if self.touched_obstacle_right and not self.touched_obstacle_left:
+                # Touched on right, mask right action, unmask left action
+                self.mask[3] = False
+                self.mask[2] = True
+        # If there are no touching obstacles, modify mask by distance sensors
+        else:
+            # Obstacles very close in front
+            if front_under_half_threshold:
+                # Mask forward
+                self.mask[0] = False
+
+            # Target is straight ahead, no obstacles close-by
+            if not any(detecting_obstacle) and abs(self.current_tar_a) < 0.1:
+                # Mask left and right turning
+                self.mask[2] = self.mask[3] = False
+
+            # The closer the robot is to the target, the mask forces the robot turn towards the target more strictly
+            angle_threshold = normalize_to_range(self.current_tar_d,
+                                                 0.0, self.initial_target_distance, -0.1, 2 * np.pi / 3)
+
+            # No obstacles on the right and target is on the right or
+            # no obstacles on the right and obstacles on the left regardless of target direction
+            if not any(reading_under_threshold_right):
+                if self.current_tar_a <= - angle_threshold or any(reading_under_threshold_left):
+                    self.mask[2] = False  # Mask left
+
+            # No obstacles on the left and target is on the left or
+            # no obstacles on the left and obstacles on the right regardless of target direction
+            if not any(reading_under_threshold_left):
+                if self.current_tar_a >= angle_threshold or any(reading_under_threshold_right):
+                    self.mask[3] = False  # Mask right
+
+            # Both left and right sensors are reading under threshold
+            if any(reading_under_threshold_left) and any(reading_under_threshold_right):
+                # Calculate the sum of how much each sensor's threshold is surpassed
+                sum_left = sum(reading_under_threshold_left)
+                sum_right = sum(reading_under_threshold_right)
+                # If left side has obstacles closer than right
+                if sum_left - sum_right < -5.0:
+                    self.mask[2] = True  # Unmask left
+                # If right side has obstacles closer than left
+                elif sum_left - sum_right > 5.0:
+                    self.mask[3] = True  # Unmask right
+                # If left and right side have obstacles on roughly equal distances
+                else:
+                    self.mask[1] = True  # Unmask backwards
+        return self.mask
 
     def get_observations(self, action=None):
         """
         This method returns the observation list of the agent.
-        A single observation consists of the distance and angle to the target, the latest change of the distance and
-        angle to target, the current motor speeds, the touch sensor value, the latest action represented by
-        a one-hot vector, and finally the distance sensor values.
+        A single observation consists of the distance and angle to the target, the current motor speeds,
+        the touch sensor values, the latest action represented by a one-hot vector,
+        and finally the distance sensor values.
 
         All values are normalized in their respective ranges, where appropriate:
         - Distance is normalized to [0.0, 1.0]
         - Angle is normalized to [-1.0, 1.0]
-        - Distance and angle change to [-1.0, 1.0]
         - Motor speeds are already constrained within [-1.0, 1.0]
-        - Touch sensor value can only been 0 or 1
+        - Touch sensor values can only been 0 or 1
         - Distance sensor values are normalized to [1.0, 0.0]
           This is done so the input gets a large activation value when the sensor returns
           small values, i.e. an obstacle is close.
-
-        Note that the normalization of the distance and angle change values are based on the maximum robot
-        movement speed that is defined by the maximum motor speeds [-1, 1].
 
         All observations are held in a memory (self.obs_memory) and the current observation is augmented with
         self.step_window steps of the latest single observations and with self.seconds_window seconds of
@@ -363,14 +472,12 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         if self.just_reset:
             self.previous_tar_d = self.current_tar_d
             self.previous_tar_a = self.current_tar_a
-        # Add distance, angle, distance change, angle change
+        # Add distance, angle, motor speeds
         obs = [normalize_to_range(self.current_tar_d, 0.0, self.initial_target_distance, 0.0, 1.0, clip=True),
                normalize_to_range(self.current_tar_a, -np.pi, np.pi, -1.0, 1.0, clip=True),
-               round(normalize_to_range(self.previous_tar_d - self.current_tar_d, -0.00128, 0.00128, -1.0, 1.0,
-                                        clip=True), 4),
-               round(normalize_to_range(abs(self.previous_tar_a) - abs(self.current_tar_a), -0.0183, 0.0183, -1.0, 1.0,
-                                        clip=True), 4),
-               self.motor_speeds[0], self.motor_speeds[1], self.touch_sensor.getValue()]  # NOQA
+               self.motor_speeds[0], self.motor_speeds[1]]
+        # Add touch sensor values
+        obs.extend(self.current_touch_sensors)
 
         if self.add_action_to_obs:
             # Add action one-hot
@@ -413,87 +520,149 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
     def get_reward(self, action):
         """
+        # TODO update
         This method calculates the reward. The reward consists of various components that get weighted and added into
         the final reward that gets returned.
 
-        - Distance to target reward is calculated based on the minimum distance to the target achieved for this episode.
-        The agent is rewarded with a value of 1.0 every time the it decreases the minimum distance to the target,
-        similar to the pit escape problem.
-        - Angle to target reward is calculated based on the latest change of the angle to target, if positive and
-        over a small threshold, the reward is 1.0, if negative and under a small threshold, the reward is -1.0
+        -  The distance to target reward is firstly the negative normalized current to target creating a continuous
+        reward based on how far the agent is from the target. Bonus reward is also added everytime a new minimum
+        distance is achieved in the episode, giving an additional incentive moving along a path that closes the
+        distance. This bonus reward is similar to the pit escape problem reward.
         - Reach target reward is 0.0, unless the current distance to target is under the on_target_threshold when it
-        becomes 1.0, and reset is triggered (done)
-        - Distance sensors reward is 0.0, unless even one of the distance sensors reads a value below the distance
-        sensor threshold when it becomes -1.0
-        - Obstacle turning reward penalizes ds values getting smaller. For each sensor value changing, a negative reward
-        is assigned for decreasing, a positive reward is assigned for increasing. The reward itself is [-1.0, 1.0] for
-        each sensor. The final reward is the average reward across all sensors.
-        - Collision reward is 0.0, unless the touch sensor detects a collision when it becomes -1.0. It also counts
-        the number of collisions and triggers a reset (done) when the set limit reset_on_collisions is reached
-        - Time penalty is simply -1.0 for each step
+        becomes 1.0 - 0.5 * (current_timestep/max_timesteps), and reset is triggered (done). This way when the target
+        is reached, half the reward is scaled based on the time it took for the robot to reach the target.
+        - If the current angle to target is over a certain threshold, the angle to target reward is calculated based
+        on the latest change of the angle to target, if positive and over a small threshold, the reward is 1.0,
+        if negative and under a small threshold, the reward is -1.0. If the absolute change is under the threshold, the
+        reward is 0.0. If the current angle to target is under a certain threshold (i.e. facing the target),
+        the agent is reward with 1.0.
+        The threshold is pi/4 scaled by the normalized distance to target, i.e. the closer the robot is to the target,
+        the more it is rewarded for turning towards it and the stricter is the threshold under which the robot is
+        considered facing the target.
+        - The distance sensor reward is calculated by first calculating a sum. For each sensor reading over the minimum
+        ds threshold, +1 is added to the sum, otherwise -1 is added. Then the average is taken and normalized
+        to [-1.0, 0.0], with different initial ranges depending on what type of sensor is used (generic or sonar).
+        The final reward is scaled by the normalized distance to target. The closer the robot is to the target the less
+        important this reward is.
+        - Collision reward is 0.0, unless a or both the touch sensors detects a collision and it becomes -1.0.
+        It also counts the number of collisions and triggers a reset (done) when the set limit
+        reset_on_collisions is reached.
+        - Smoothness reward is calculated based on the rotational speed of the robot. The higher the latest absolute
+        facing angle change the closer the reward is to -1.0. The closer the value is to 0.0 (no turning at all), the
+        closer the reward is to 1.0. The final reward is scaled by the normalized distance to target.
+        The closer the robot is to the target the less important this reward is. Note the custom value for maximum
+        rotational speed used for normalizing.
+        - Speed reward is calculated based on the translational speed of the robot. The higher the latest distance moved
+        is, the closer the reward is to 1.0. The closer the value is to 0.0 (no distance moved), the closer the reward
+        is to -1.0. The final reward is scaled by the normalized distance to target. The closer the robot is to the
+        target the less important this reward is. Note the custom value for maximum distance moved used for normalizing.
+
+        Finally, the angle to target reward is zeroed out if there is a non-negative distance sensor reward or
+        non-negative collision reward, to allow the agent to turn and move around obstacles without penalizing.
 
         All these rewards are multiplied with their corresponding weights taken from reward_weight_dict and summed into
         the final reward.
 
         :param action: The latest action
         :type action: int
-        :return: The total reward
+        :return: The total step reward
         :rtype: float
         """
-        # Reward for decreasing distance to the target
+        # If episode was just reset, set previous and current target distance and angle
         if self.just_reset:
             self.previous_tar_d = self.current_tar_d = self.initial_target_distance
             self.previous_tar_a = self.current_tar_a = self.initial_target_angle
+        ################################################################################################################
+        # Distance to target rewards
+        # Reward for decreasing distance to the target
 
-        dist_tar_reward = 0.0
+        # The normalized current distance to target is used to scale rewards
+        normalized_current_tar_d = normalize_to_range(self.current_tar_d,
+                                                      0.0, self.initial_target_distance, 0.0, 1.0, clip=True)
+
+        # Initial distance reward is minus the normalized distance to the target
+        dist_tar_reward = -normalized_current_tar_d
+        # If min distance is decreased, add +1 reward
         if round(self.current_tar_d, 4) - round(self.min_distance_reached, 4) < 0.0:
-            dist_tar_reward = 1.0
+            dist_tar_reward += 1.0
             self.min_distance_reached = self.current_tar_d
 
-        # Reward for decreasing angle to the target
-        ang_tar_reward = 0.0
-        if abs(self.previous_tar_a) - abs(self.current_tar_a) > 0.01:
-            ang_tar_reward = 1.0
-        elif abs(self.previous_tar_a) - abs(self.current_tar_a) < -0.01:
-            ang_tar_reward = -1.0
-
-        # Reward for reaching the target
+        # Reward for reaching the target, i.e. decreasing the real distance under the threshold
+        # Final reward is modified by the time it took to reach the target
         reach_tar_reward = 0.0
         if self.current_tar_d < self.on_target_threshold:
             reach_tar_reward = 1.0 - 0.5 * self.current_timestep / self.maximum_episode_steps
-            self.trigger_done = True  # Terminate episode
-            self.done_reason = "reached target"
+            self.done_reason = "reached target"  # This triggers termination of episode
 
-        # Penalty for distance sensors values
+        ################################################################################################################
+        # Angle to target reward
+        # Reward for decreasing angle to the target
+        # If turning towards the target apply +1.0, if turning away apply -1.0
+        if abs(self.current_tar_a) > (np.pi / 4) * normalized_current_tar_d:
+            if round(abs(self.previous_tar_a) - abs(self.current_tar_a), 3) > 0.001:
+                ang_tar_reward = 1.0
+            elif round(abs(self.previous_tar_a) - abs(self.current_tar_a), 3) < -0.001:
+                ang_tar_reward = -1.0
+            else:
+                ang_tar_reward = 0.0
+        else:
+            ang_tar_reward = 1.0
+        ################################################################################################################
+        # Obstacle avoidance rewards
+        # Reward for distance sensors values
         dist_sensors_reward = 0
         for i in range(len(self.distance_sensors)):
-            if self.current_dist_sensors[i] < self.dist_sensors_threshold:
-                dist_sensors_reward -= 1.0  # If any sensor is under threshold assign penalty
+            if self.current_dist_sensors[i] < self.ds_thresholds[i]:
+                # If any sensor is under threshold add penalty
+                dist_sensors_reward -= 1.0
+            else:
+                # Otherwise add reward
+                dist_sensors_reward += 1.0
         dist_sensors_reward /= self.number_of_distance_sensors
-        dist_sensors_reward = normalize_to_range(dist_sensors_reward, 0.0, -0.5385, 0.0, -1.0)
+        # Realistically not all sonar sensors can read under the thresholds set, if robot is boxed in
+        #  with a wall in front, wall on the left and right, only the two left and two right-most sensors as
+        #  well as the three frontal ones will read low values, resulting in an average reward of -0.077,
+        #  which is normalized to -1.0.
+        if self.ds_type == "sonar":
+            dist_sensors_reward = round(normalize_to_range(dist_sensors_reward, -0.077, 1.0, -1.0, 0.0, clip=True), 4)
+        elif self.ds_type == "generic":
+            dist_sensors_reward = round(normalize_to_range(dist_sensors_reward, -1.0, 1.0, -1.0, 0.0, clip=True), 4)
+        #  Final value is multiplied by current distance, so this reward gets less important, the closer
+        #  the robot is to the target.
+        dist_sensors_reward *= normalized_current_tar_d
 
+        # Penalty for collisions
         # Check if the robot has collided with anything, assign negative reward
         collision_reward = 0.0
-        if self.touch_sensor.getValue() == 1.0:  # NOQA
+        if any(self.current_touch_sensors):
             self.collisions_counter += 1
             if self.collisions_counter >= self.reset_on_collisions - 1 and self.reset_on_collisions != -1:
-                self.trigger_done = True
-                self.done_reason = "collision"
-                self.collisions_counter = 0
+                self.done_reason = "collision"  # This triggers termination of episode
             collision_reward = -1.0
 
-        # Assign a penalty for each step
-        time_penalty = -1.0
+        ################################################################################################################
+        # Rewards for driving smoothly and at speed
+        # Smoothness reward based on angular velocity, -1.0 for fast turning, 1.0 for no turning
+        # Multiplied by the current distance to target, means that the farther away the robot is the more important
+        #  it is to move smoothly. Near the target, violent turning maneuvers might be needed.
+        smoothness_reward = round(
+            -abs(normalize_to_range(self.current_rotation_change, -0.0183, 0.0183, -1.0, 1.0, clip=True)), 2)
+        if not self.just_reset:
+            self.smoothness_list.append(smoothness_reward)  # To use as metric
+        smoothness_reward *= normalized_current_tar_d
 
-        # Episode will terminate and robot didn't reach the target
-        not_reach_reward = 0.0
-        if self.current_timestep == self.maximum_episode_steps - 1:
-            not_reach_reward = normalize_to_range(get_distance_from_target(self.robot, self.target),
-                                                  0.0, self.initial_target_distance, 0.0, -1.0)
+        # Speed reward based on distance moved on last step. Obviously, straight movement produces better reward.
+        # This also means that neutral turns are also penalized because the position is not changing.
+        # Similar to smoothness reward, moving at speed is less important near the target.
+        dist_moved = np.linalg.norm([self.current_position[0] - self.previous_position[0],
+                                     self.current_position[1] - self.previous_position[1]])
+        speed_reward = normalize_to_range(dist_moved, 0.0, 0.0012798, -1.0, 1.0)
+        speed_reward *= normalized_current_tar_d
 
-        smoothness_reward = 0.0
-        if self.current_rotation_change * self.previous_rotation_change < 0.0 and dist_sensors_reward == 0.0:
-            smoothness_reward = -1.0
+        ################################################################################################################
+        # Reward modification based on whether there are obstacles detected nearby
+        if dist_sensors_reward != 0.0 or any(self.current_touch_sensors):
+            ang_tar_reward = 0.0
 
         ################################################################################################################
         # Total reward calculation
@@ -501,35 +670,37 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         weighted_ang_tar_reward = self.reward_weight_dict["ang_tar"] * ang_tar_reward
         weighted_dist_sensors_reward = self.reward_weight_dict["dist_sensors"] * dist_sensors_reward
         weighted_reach_tar_reward = self.reward_weight_dict["tar_reach"] * reach_tar_reward
-        weighted_not_reach_tar_reward = self.reward_weight_dict["not_reach_weight"] * not_reach_reward
         weighted_collision_reward = self.reward_weight_dict["collision"] * collision_reward
-        weighted_time_penalty = self.reward_weight_dict["time_penalty_weight"] * time_penalty
         weighted_smoothness_reward = self.reward_weight_dict["smoothness_weight"] * smoothness_reward
-
-        if weighted_dist_sensors_reward != 0:
-            weighted_dist_tar_reward = weighted_dist_tar_reward * self.tar_d_weight_multiplier
-            weighted_ang_tar_reward = weighted_ang_tar_reward * self.tar_a_weight_multiplier
+        weighted_speed_reward = self.reward_weight_dict["speed_weight"] * speed_reward
 
         # Add various weighted rewards together
         reward = (weighted_dist_tar_reward + weighted_ang_tar_reward + weighted_dist_sensors_reward +
-                  weighted_collision_reward + weighted_reach_tar_reward + weighted_not_reach_tar_reward +
-                  weighted_time_penalty + weighted_smoothness_reward)
+                  weighted_collision_reward + weighted_reach_tar_reward + weighted_smoothness_reward +
+                  weighted_speed_reward)
+
+        self.episode_accumulated_reward += reward
 
         if self.just_reset:
-            self.just_reset = False
+            # For the first step in each episode (just reset), return 0.0 reward.
             return 0.0
         else:
             return reward
 
     def is_done(self):
         """
-        Episode done triggers from the trigger_done flag which is set in the reward function, when the maximum
-        number of collisions is reached or the target is reached.
+        Episode done triggers when the done_reason string is set which happens in the reward function, when the maximum
+        number of collisions is reached or the target is reached. This method handles the episode termination on
+        timeout and sets the done_reason string appropriately.
 
         :return: Whether the episode is done
         :rtype: bool
         """
-        if self.trigger_done:
+        if self.done_reason != "":
+            return True
+        # Timeout
+        if self.current_timestep >= self.maximum_episode_steps:
+            self.done_reason = "timeout"
             return True
         return False
 
@@ -538,31 +709,19 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         Resets the simulation physics and objects and re-initializes robot and target positions,
         along any other variables that need to be reset to their original values.
 
-        Then it creates the new obstacle map depending on difficulty, and resets the viewpoint.
+        The new map is created depending on difficulty, and viewpoint is reset.
         """
         self.simulationResetPhysics()
         super(Supervisor, self).step(int(self.getBasicTimeStep()))  # NOQA
-        self.obs_list = self.get_default_observation()
         self.obs_memory = [[0.0 for _ in range(self.single_obs_size)]
                            for _ in range((self.seconds_window * int(np.ceil(1000 / self.timestep))) +
                                           self.step_window)]
         self.observation_counter = self.observation_counter_limit
         # Reset path and various values
-        self.current_timestep = 0
         self.trigger_done = False
         self.path_to_target = None
         self.motor_speeds = [0.0, 0.0]
         self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
-        self.current_tar_d = 0.0
-        self.previous_tar_d = 0.0
-        self.current_tar_a = 0.0
-        self.previous_tar_a = 0.0
-        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
-        self.current_rotation = 0.0
-        self.previous_rotation = 0.0
-        self.current_rotation_change = 0.0
-        self.previous_rotation_change = 0.0
         self.collisions_counter = 0
 
         # Set robot random rotation
@@ -596,12 +755,14 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.place_path(self.path_to_target)
         self.just_reset = True
 
-        # Finally, reset viewpoint, so it plays nice
+        # Reset viewpoint so it plays nice
         self.viewpoint.getField("position").setSFVec3f(self.viewpoint_position)
         self.viewpoint.getField("orientation").setSFRotation(self.viewpoint_orientation)
+
+        # Finally, reset any other values and count any metrics
         self.reset_count += 1
-        if self.done_reason != "":
-            print("Resetting, done reason:", self.done_reason)
+        print(f"Reward: {self.episode_accumulated_reward}, steps: {self.current_timestep}, "
+              f"done reason:{self.done_reason}")
         if self.done_reason == "collision":
             self.collision_termination_count += 1
         elif self.done_reason == "reached target":
@@ -609,10 +770,41 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         elif self.done_reason == "timeout":
             self.timeout_count += 1
         self.done_reason = ""
+        self.current_timestep = 0
         self.initial_target_distance = get_distance_from_target(self.robot, self.target)
         self.initial_target_angle = get_angle_from_target(self.robot, self.target)
-        self.min_distance_reached = self.initial_target_distance
-        return self.obs_list
+        self.min_dist_reached_list.append(self.min_distance_reached)
+        self.min_distance_reached = self.initial_target_distance - 0.01
+        self.episode_accumulated_reward = 0.0
+        self.current_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.previous_dist_sensors = [0.0 for _ in range(len(self.distance_sensors))]
+        self.current_touch_sensors = [0.0, 0.0]
+        self.current_position = list(self.robot.getPosition()[:2])
+        self.previous_position = list(self.robot.getPosition()[:2])
+        self.current_rotation = self.get_robot_rotation()
+        self.previous_rotation = self.get_robot_rotation()
+        self.current_rotation_change = 0.0
+        self.previous_rotation_change = 0.0
+        self.current_tar_d = 0.0
+        self.previous_tar_d = 0.0
+        self.current_tar_a = 0.0
+        self.previous_tar_a = 0.0
+        self.touched_obstacle_left = False
+        self.touched_obstacle_right = False
+        self.mask = [True for _ in range(self.action_space.n)]
+        return self.get_default_observation()
+
+    def clear_smoothness_list(self):
+        """
+        Method used to trigger the cleaning of the smoothness_list on demand.
+        """
+        self.smoothness_list = []
+
+    def clear_min_dist_reached_list(self):
+        """
+        Method used to trigger the cleaning of the min_dist_reached_list on demand.
+        """
+        self.min_dist_reached_list = []
 
     def get_default_observation(self):
         """
@@ -623,14 +815,24 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         """
         return [0.0 for _ in range(self.observation_space.shape[0])]
 
+    def get_robot_rotation(self):
+        # Fix rotation vector, because Webots randomly flips Z
+        temp_rot = self.robot.getField("rotation").getSFRotation()
+        if temp_rot[2] < 0.0:
+            return -temp_rot[3]
+        else:
+            return temp_rot[3]
+
     def update_current_metrics(self):
         """
-        Updates any metric that needs to be updated in each step.
+        Updates any metric that needs to be updated in each step. It serves as a unified place for updating metrics
+        used in various methods. This runs after each simulation step.
         """
         # Save previous values
         self.previous_tar_d = self.current_tar_d
         self.previous_tar_a = self.current_tar_a
         self.previous_dist_sensors = self.current_dist_sensors
+        self.previous_position = self.current_position
         self.previous_rotation = self.current_rotation
         self.previous_rotation_change = self.current_rotation_change
 
@@ -638,17 +840,13 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.current_tar_d = get_distance_from_target(self.robot, self.target)
         self.current_tar_a = get_angle_from_target(self.robot, self.target)
 
-        # Get current rotation
-        # Fix rotation vector, because Webots randomly flips Z
-        temp_rot = self.robot.getField("rotation").getSFRotation()
-        if round(temp_rot[2]) == -1.0:
-            temp_rot[2] = 1.0
-            temp_rot[3] *= -1.0
-            self.robot.getField("rotation").setSFRotation(temp_rot)
+        # Get current position
+        self.current_position = list(self.robot.getPosition()[:2])
 
-        # Get current rotation change
-        self.current_rotation = self.robot.getField("rotation").getSFRotation()[3]
-        if self.current_rotation*self.previous_rotation < 0.0:
+        # Get current rotation
+        self.current_rotation = self.get_robot_rotation()
+        # To get rotation change we need to make sure there's not a big change from -pi to pi
+        if self.current_rotation * self.previous_rotation < 0.0:
             self.current_rotation_change = self.previous_rotation_change
         else:
             self.current_rotation_change = self.current_rotation - self.previous_rotation
@@ -657,6 +855,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.current_dist_sensors = []  # Values are in range [0, self.ds_max]
         for ds in self.distance_sensors:
             self.current_dist_sensors.append(ds.getValue())  # NOQA
+
+        # # Deprive robot of distance sensors
+        # for i in range(len(self.current_dist_sensors)):
+        #     if i in [0, 4, 6, 8, 12]:  # Keep only these sensors
+        #         continue
+        #     else:
+        #         self.current_dist_sensors[i] = self.ds_max[i]
+
+        # Get both touch sensor values
+        self.current_touch_sensors = [self.touch_sensor_left.getValue(), self.touch_sensor_right.getValue()]  # NOQA
 
     def step(self, action):
         """
@@ -675,17 +883,16 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             exit()
 
         self.update_current_metrics()
+        self.current_timestep += 1
 
         obs = self.get_observations(action)
         rew = self.get_reward(action)
         done = self.is_done()
         info = self.get_info()
-        self.current_timestep += 1
-        # Timeout
-        if self.current_timestep >= self.maximum_episode_steps:
-            done = True
-            self.done_reason = "timeout"
-            info = {"done_reason": self.done_reason}
+
+        if self.just_reset:
+            self.just_reset = False
+
         return (
             obs,
             rew,
@@ -693,28 +900,33 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             info
         )
 
-    def set_maximum_episode_steps(self, new_value):
-        """
-        This is required to be able to change the value and sb3 registers it.
-        """
-        self.maximum_episode_steps = new_value
-
     def apply_action(self, action):
         """
-        This method gets an integer action value [0, 1, ...] where each value
-        corresponds to an action:
-        0: Increase left motor speed
-        1: Increase right motor speed
-        2: Decrease left motor speed
-        3: Decrease right motor speed
-        4: No action
+        This method gets an integer action value [0, 1, ...] where each value corresponds to an action.
 
-        and applies the action by changing and setting the motor speeds.
+        The integer-action mapping is as follows:
+        - 0: Increase both motor speeds, forward action
+        - 1: Decrease both motor speeds, backward action
+        = 2: Increase right motor speed, decrease left motor speed, turn left
+        - 3: Increase left motor speed, decrease right motor speed, turn right
+        - 4: No change in motor speeds, no action
 
         This method also incorporates the keyboard control and if the user presses any of the
-        control buttons that correspond to more user-friendly actions
-        (W: move forward, A: turn left, S: move backwards, D: turn right), it applies and returns no action
-        for the agent.
+        control buttons that correspond to the aforementioned actions.
+
+        The key-action mapping is as follows:
+        - W: Increase both motor speeds, forward action
+        - S: Decrease both motor speeds, backward action
+        - A: Increase right motor speed, decrease left motor speed, turn left
+        - D: Increase left motor speed, decrease right motor speed, turn right
+        - X: Set motor speeds to zero, stop
+
+        More keys are used to print helpful information:
+        - O: Print latest observation
+        - R: Print latest reward
+        - M: Print latest action mask and current motor speeds
+
+        Finally, the motor speeds are clipped to [-1, 1] and applied to the motors.
 
         :param action: The action to execute
         :type action: int
@@ -726,43 +938,49 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             print(self.obs_memory[-1])
         if key == ord("R"):  # Print latest reward
             print(self.get_reward(action))
+        if key == ord("M"):  # Print current mask
+            names = ["Forward", "Backward", "Left", "Right", "No action"]
+            print([names[i] for i in range(len(self.mask)) if self.mask[i]])
+            print(self.motor_speeds)
 
         if self.manual_control:
             action = 4
-            self.motor_speeds[0] = 0.0
-            self.motor_speeds[1] = 0.0
-        if key == ord("W"):  # Move forward
+        if key == ord("W") and self.mask[0]:  # Increase both motor speeds
+            action = 0
+        if key == ord("S") and self.mask[1]:  # Decrease both motor speeds
+            action = 1
+        if key == ord("A") and self.mask[2]:  # Increase right motor speed, decrease left motor speed, turn left
+            action = 2
+        if key == ord("D") and self.mask[3]:  # Decrease right motor speed, increase left motor speed, turn right
+            action = 3
+        if key == ord("X"):  # No action
             action = 4
-            self.motor_speeds[0] = 4.0
-            self.motor_speeds[1] = 4.0
-        if key == ord("S"):  # Move backward
-            action = 4
-            self.motor_speeds[0] = -4.0
-            self.motor_speeds[1] = -4.0
-        if key == ord("A"):  # Turn Left
-            action = 4
-            self.motor_speeds[0] = -2.0
-            self.motor_speeds[1] = 2.0
-        if key == ord("D"):  # Turn right
-            action = 4
-            self.motor_speeds[0] = 2.0
-            self.motor_speeds[1] = -2.0
+            self.motor_speeds = [0.0, 0.0]
 
-        if action == 0:  # Increase left wheel
+        if action == 0:  # Increase both motor speeds
             if self.motor_speeds[0] < 1.0:
                 self.motor_speeds[0] += 0.25
-        elif action == 1:  # Increase right wheel
             if self.motor_speeds[1] < 1.0:
                 self.motor_speeds[1] += 0.25
-        elif action == 2:  # Decrease left wheel
+        elif action == 1:  # Decrease both motor speeds
             if self.motor_speeds[0] > -1.0:
                 self.motor_speeds[0] -= 0.25
-        elif action == 3:  # Decrease right wheel
+            if self.motor_speeds[1] > -1.0:
+                self.motor_speeds[1] -= 0.25
+        elif action == 2:  # Increase right motor speed, decrease left motor speed, turn left
+            if self.motor_speeds[0] > -1.0:
+                self.motor_speeds[0] -= 0.25
+            if self.motor_speeds[1] < 1.0:
+                self.motor_speeds[1] += 0.25
+        elif action == 3:  # Decrease right motor speed, increase left motor speed, turn right
+            if self.motor_speeds[0] < 1.0:
+                self.motor_speeds[0] += 0.25
             if self.motor_speeds[1] > -1.0:
                 self.motor_speeds[1] -= 0.25
         elif action == 4:  # No action
             pass
 
+        self.motor_speeds = np.clip(self.motor_speeds, -1.0, 1.0)
         # Apply motor speeds
         self.set_velocity(self.motor_speeds[0], self.motor_speeds[1])
         return action
@@ -779,6 +997,86 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.right_motor.setPosition(float('inf'))  # NOQA
         self.left_motor.setVelocity(v_left)  # NOQA
         self.right_motor.setVelocity(v_right)  # NOQA
+
+    def get_info(self):
+        """
+        Returns the reason the episode is done when the episode terminates.
+
+        :return: Dictionary containing information
+        :rtype: dict
+        """
+        if self.done_reason != "":
+            return {"done_reason": self.done_reason}
+        else:
+            return {}
+
+    def render(self, mode='human'):
+        """
+        Dummy implementation of render.
+
+        :param mode: defaults to 'human'
+        :type mode: str, optional
+        """
+        print("render() is not used")
+
+    def export_parameters(self, path,
+                          net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef, n_steps, batch_size):
+        """
+        Exports all parameters that define the environment/experiment setup.
+
+        :param path: The path to save the export
+        :type path: str
+        :param net_arch: The network architectures, e.g. dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
+        :type net_arch: dict with two lists
+        :param gamma: The gamma value
+        :type gamma: float
+        :param gae_lambda: The GAE lambda value
+        :type gae_lambda: float
+        :param target_kl: The target_kl value
+        :type target_kl: float
+        :param vf_coef: The vf_coef value
+        :type vf_coef: float
+        :param ent_coef: The ent_coef value
+        :type ent_coef: float
+        :param n_steps: Number of steps between each training session for sb3
+        :type n_steps: int
+        :param batch_size: The batch size used during training
+        :type batch_size: int
+        """
+        import json
+        param_dict = {"experiment_description": self.experiment_desc,
+                      "seed": self.seed,
+                      "n_steps:": n_steps,
+                      "batch_size": batch_size,
+                      "maximum_episode_steps": self.maximum_episode_steps,
+                      "add_action_to_obs": self.add_action_to_obs,
+                      "step_window": self.step_window,
+                      "seconds_window": self.seconds_window,
+                      "ds_params": {
+                          "max range": self.ds_max,
+                          "type": self.ds_type,
+                          "rays": self.ds_n_rays,
+                          "aperture": self.ds_aperture,
+                          "resolution": self.ds_resolution,
+                          "noise": self.ds_noise,
+                          "minimum thresholds": self.ds_thresholds},
+                      "rewards_weights": self.reward_weight_dict,
+                      "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
+                      "difficulty": self.current_difficulty,
+                      "ppo_params": {
+                          "net_arch": net_arch,
+                          "gamma": gamma,
+                          "gae_lambda": gae_lambda,
+                          "target_kl": target_kl,
+                          "vf_coef": vf_coef,
+                          "ent_coef": ent_coef,
+                      }
+                      }
+        with open(path, 'w') as fp:
+            json.dump(param_dict, fp, indent=4)
+
+    ####################################################################################################################
+    # Map-related methods below
 
     def remove_objects(self):
         """
@@ -950,85 +1248,9 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
             closest_point = point_on_line
         return min_distance, closest_point
 
-    def get_info(self):
-        """
-        Returns the reason the episode is done, used only while testing.
 
-        :return: Dictionary containing information
-        :rtype: dict
-        """
-        if self.trigger_done:
-            return {"done_reason": self.done_reason}
-        else:
-            return {}
-
-    def render(self, mode='human'):
-        """
-        Dummy implementation of render.
-
-        :param mode: defaults to 'human'
-        :type mode: str, optional
-        """
-        print("render() is not used")
-
-    def export_parameters(self, path,
-                          net_arch, gamma, gae_lambda, target_kl, vf_coef, ent_coef,
-                          difficulty_dict, maximum_episode_steps, n_steps, batch_size):
-        """
-        Exports all parameters that define the environment/experiment setup.
-
-        :param path: The path to save the export
-        :type path: str
-        :param net_arch: The network architectures, e.g. dict(pi=[1024, 512, 256], vf=[2048, 1024, 512])
-        :type net_arch: dict with two lists
-        :param gamma: The gamma value
-        :type gamma: float
-        :param gae_lambda: The GAE lambda value
-        :type gae_lambda: float
-        :param target_kl: The target_kl value
-        :type target_kl: float
-        :param vf_coef: The vf_coef value
-        :type vf_coef: float
-        :param ent_coef: The ent_coef value
-        :type ent_coef: float
-        :param difficulty_dict: The difficulty dict
-        :type difficulty_dict: dict
-        :param maximum_episode_steps: The maximum episode steps before timeout
-        :type maximum_episode_steps: int
-        :param n_steps: Number of steps between each training session for sb3
-        :type n_steps: int
-        :param batch_size: The batch size used during training
-        :type batch_size: int
-        """
-        import json
-        param_dict = {"experiment_description": self.experiment_desc,
-                      "seed": self.seed,
-                      "n_steps:": n_steps,
-                      "batch_size": batch_size,
-                      "maximum_episode_steps": maximum_episode_steps,
-                      "add_action_to_obs": self.add_action_to_obs,
-                      "step_window": self.step_window,
-                      "seconds_window": self.seconds_window,
-                      "ds_type": self.ds_type,
-                      "ds_noise": self.ds_noise,
-                      "max_ds_range": self.ds_max[0],
-                      "dist_sensors_threshold": self.dist_sensors_threshold,
-                      "tar_d_weight_multiplier": self.tar_d_weight_multiplier,
-                      "tar_a_weight_multiplier": self.tar_a_weight_multiplier,
-                      "rewards_weights": self.reward_weight_dict,
-                      "map_width": self.map_width, "map_height": self.map_height, "cell_size": self.cell_size,
-                      "difficulty": difficulty_dict,
-                      "ppo_params": {
-                          "net_arch": net_arch,
-                          "gamma": gamma,
-                          "gae_lambda": gae_lambda,
-                          "target_kl": target_kl,
-                          "vf_coef": vf_coef,
-                          "ent_coef": ent_coef,
-                      }
-                      }
-        with open(path, 'w') as fp:
-            json.dump(param_dict, fp, indent=4)
+####################################################################################################################
+# Grid class used to create the random obstacle map
 
 
 class Grid:
