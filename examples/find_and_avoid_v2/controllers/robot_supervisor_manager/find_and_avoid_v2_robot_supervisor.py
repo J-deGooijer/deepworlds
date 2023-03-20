@@ -44,6 +44,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     :type ds_resolution: float, optional
     :param ds_noise: The percentage of gaussian noise to add to the distance sensors, defaults to 0.0
     :type ds_noise: float, optional
+    :param ds_deprivation_list: The list of distance sensor indices to disable, defaults to None
+    :type ds_deprivation_list: list, optional
     :param target_distance_weight: The target distance reward weight, defaults to 1.0
     :type target_distance_weight: float, optional
     :param target_angle_weight: The target angle reward weight, defaults to 1.0
@@ -71,7 +73,7 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     def __init__(self, description, maximum_episode_steps, step_window=1, seconds_window=0, add_action_to_obs=True,
                  reset_on_collisions=0, manual_control=False, on_target_threshold=0.1,
                  max_ds_range=100.0, ds_type="generic", ds_n_rays=1, ds_aperture=0.1,
-                 ds_resolution=-1, ds_noise=0.0,
+                 ds_resolution=-1, ds_noise=0.0, ds_deprivation_list=None,
                  target_distance_weight=1.0, target_angle_weight=1.0, dist_sensors_weight=1.0,
                  target_reach_weight=1.0, collision_weight=1.0, smoothness_weight=1.0, speed_weight=1.0,
                  map_width=7, map_height=7, cell_size=None, seed=None):
@@ -94,6 +96,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         self.keyboard = Keyboard()
         self.keyboard.enable(self.timestep)
 
+        if ds_deprivation_list is None:
+            self.ds_deprivation_list = []
         ################################################################################################################
         # Robot setup
 
@@ -520,7 +524,6 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
     def get_reward(self, action):
         """
-        # TODO update
         This method calculates the reward. The reward consists of various components that get weighted and added into
         the final reward that gets returned.
 
@@ -856,12 +859,10 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
         for ds in self.distance_sensors:
             self.current_dist_sensors.append(ds.getValue())  # NOQA
 
-        # # Deprive robot of distance sensors
-        # for i in range(len(self.current_dist_sensors)):
-        #     if i in [0, 4, 6, 8, 12]:  # Keep only these sensors
-        #         continue
-        #     else:
-        #         self.current_dist_sensors[i] = self.ds_max[i]
+        # Deprive robot of distance sensors
+        # Distance sensors whose index is in the deprivation list get their value overwritten with the max value
+        for i in self.ds_deprivation_list:
+            self.current_dist_sensors[i] = self.ds_max[i]
 
         # Get both touch sensor values
         self.current_touch_sensors = [self.touch_sensor_left.getValue(), self.touch_sensor_right.getValue()]  # NOQA
