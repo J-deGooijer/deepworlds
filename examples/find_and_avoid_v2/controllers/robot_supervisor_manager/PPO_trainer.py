@@ -158,7 +158,7 @@ def run(experiment_name="experiment", experiment_description="", manual_control=
         collision_weight=100.0, smoothness_weight=0.0, speed_weight=0.0,
         map_w=7, map_h=7, cell_size=None, seed=None,
         net_arch=None, gamma=0.999, gae_lambda=0.95, target_kl=None, vf_coef=0.5, ent_coef=0.001, difficulty_dict=None,
-        n_steps=2048, batch_size=64, lr_rate=None):
+        n_steps=2048, batch_size=64, lr_rate=None, ds_deprivation_list=None):
 
     experiment_dir = f"./experiments/{experiment_name}"
 
@@ -197,6 +197,7 @@ def run(experiment_name="experiment", experiment_description="", manual_control=
                                               on_target_threshold=on_tar_threshold,
                                               ds_type=ds_type, ds_n_rays=ds_n_rays, ds_aperture=ds_aperture,
                                               ds_resolution=ds_resolution, ds_noise=ds_noise,
+                                              ds_deprivation_list=ds_deprivation_list,
                                               target_distance_weight=target_dist_weight,
                                               target_angle_weight=target_angle_weight,
                                               dist_sensors_weight=dist_sensors_weight,
