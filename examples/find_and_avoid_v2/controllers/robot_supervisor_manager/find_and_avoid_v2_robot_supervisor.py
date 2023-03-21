@@ -443,7 +443,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
                     self.mask[3] = True  # Unmask right
                 # If left and right side have obstacles on roughly equal distances
                 else:
-                    self.mask[1] = True  # Unmask backwards
+                    # Enable touched condition
+                    self.touched_obstacle_right = self.touched_obstacle_left = True
         return self.mask
 
     def get_observations(self, action=None):
@@ -764,8 +765,9 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
         # Finally, reset any other values and count any metrics
         self.reset_count += 1
-        print(f"Reward: {self.episode_accumulated_reward}, steps: {self.current_timestep}, "
-              f"done reason:{self.done_reason}")
+        if self.done_reason != "":
+            print(f"Reward: {self.episode_accumulated_reward}, steps: {self.current_timestep}, "
+                  f"done reason:{self.done_reason}")
         if self.done_reason == "collision":
             self.collision_termination_count += 1
         elif self.done_reason == "reached target":
