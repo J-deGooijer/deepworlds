@@ -98,6 +98,8 @@ class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
 
         if ds_deprivation_list is None:
             self.ds_deprivation_list = []
+        else:
+            self.ds_deprivation_list = ds_deprivation_list
         ################################################################################################################
         # Robot setup
 
