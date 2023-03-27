@@ -9,9 +9,15 @@ from controller import Supervisor, Keyboard
 
 class FindAndAvoidV2RobotSupervisor(RobotSupervisorEnv):
     """
-    TODO *Problem description*
+    This is the updated and expanded second version of find and avoid.
+    For this example, a simple custom differential drive robot is used, equipped with
+    forward-facing distance and touch sensors. The goal is to navigate to a target by modifying
+    the speeds of the left and right motor, while avoiding obstacles using the distance and touch sensors.
+    The agent observes its distance to the target as well as its relative facing angle, its motor speeds, the touch
+    and distance sensor values and its latest action. The observation can also be augmented with observations
+    from earlier steps.
 
-    Distance sensors from left to right:
+    Distance sensors scheme
     Sensor indices/positions:   [0,   1,    2,    3,     4,    5,     6,      7,     8,    9,     10,   11,   12]
     Frontal sensors slice:                              [4:         frontal         :9]
     Left/right sensors slices:  [0:         left        :5]                         [8:        right         :13]
