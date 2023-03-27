@@ -56,16 +56,16 @@ on_tar_threshold = 0.1  # The distance under which the robot is considered "on t
 # evaluation, see PPO_testing.py
 tests_per_difficulty = 100
 
-# Distance sensor deprivation list
+# Distance sensor denial list
 # Filled with integers that correspond to indices of distance sensors, e.g. [1, 2, 3, 5, 7, 9, 10, 11]
 #  Distance sensors from left to right:
 #  Sensor indices/positions:   [0,   1,    2,    3,     4,    5,     6,      7,     8,    9,     10,   11,   12]
 #  Frontal sensors:                                    [           frontal           ]
 #  Left/right sensors:         [           left          ]                         [           right           ]
 # Sensors whose index is contained in the list have their value overwritten with the max value, disabling them.
-# Used only in testing, to train with sensor deprivation it is better to modify the environment internally and entirely
-# remove unused sensors from the world as well as the observation of the agent.
-ds_deprivation_list = []
+# Used only in testing, to train with sensor denial you need to provide it to the ctor of the environment or entirely
+# remove unused sensors from the world as well as the observation of the agent and modify the environment internally.
+ds_denial_list = []
 
 # Reward weights
 target_dist_weight = 1.0
@@ -103,6 +103,6 @@ env = PPO_trainer.run(experiment_name=experiment_name, experiment_description=ex
                       target_kl=target_kl, vf_coef=vf_coef, ent_coef=ent_coef, lr_rate=lr_rate,
                       difficulty_dict=difficulty_dict, seed=seed)
 seed = 2
-env.ds_deprivation_list = ds_deprivation_list
+env.ds_denial_list = ds_denial_list  # Distance sensor denial is added only for testing
 PPO_testing.run(experiment_name, env, deterministic, use_masking, testing_results_filename=test_results_filename,
                 tests_per_difficulty=tests_per_difficulty, seed=seed)
