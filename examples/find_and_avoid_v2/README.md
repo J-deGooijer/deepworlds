@@ -31,7 +31,7 @@ between the robot and the target.
 
 ## Testing
 Testing first takes place in random maps set up similar to the last training session using stable-baselines3's 
-evaluation for 100 episodes (and consequently maps). 
+`evaluate_policy` for 100 episodes (and consequently maps). 
 
 Then a custom evaluation procedure takes place that tests the agent in various corridor setups of increasing 
 difficulties and a random map setup for 100 episodes each.
@@ -42,8 +42,8 @@ Tensorboard is used for logging various aspects of the training procedure. To wa
 `tensorboard --logdir ./experiments/`.
 
 For testing, a CSV file is produced that includes the reward per episode, how the episode ended (collision, timeout 
-or reached target), as well as the steps taken until the end of the episode. Moreover, the sb3 evaluation mean 
-and STD reward are recorded.
+or reached target), as well as the steps taken until the end of the episode. Moreover, the average reward and the 
+standard deviation of the reward are recorded, as returned by sb3's `evaluate_policy`.
 
 ## Agents 
     
