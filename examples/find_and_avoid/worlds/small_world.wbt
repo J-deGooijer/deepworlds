@@ -1,4 +1,4 @@
-#VRML_SIM R2022b utf8
+#VRML_SIM R2023a utf8
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/robots/gctronic/e-puck/protos/E-puck.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/backgrounds/protos/TexturedBackground.proto"
@@ -9,12 +9,12 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.002499992187536621 0.9999968750146484 0 1.54
-  position -0.0769789523060592 -0.009762317935755683 1.9019529461174487
+  orientation 0.021377973611688746 0.9990136217035759 -0.03891999351185088 0.8719584363520527
+  position -0.9248048883641294 0.2187041330780768 0.9427828576588821
 }
 WoodenBox {
-  translation -0.1 0.16 0.07
-  rotation 0.5773509358554485 0.5773489358556708 0.5773509358554485 2.0944
+  translation -0.69 0.16 0.0700046
+  rotation 0.5773522691836299 -0.5773462691808325 -0.5773522691836299 2.09439
   size 0.06 0.15 0.5
 }
 TexturedBackground {
@@ -39,6 +39,7 @@ DEF supervisor Robot {
 }
 DEF robot E-puck {
   translation -0.26 0.27 0
+  rotation 0 0 1 -1.5707953071795862
   name "robot"
   controller "robot"
   emitter_channel 0

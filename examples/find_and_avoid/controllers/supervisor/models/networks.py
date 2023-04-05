@@ -129,28 +129,28 @@ class ActorNetwork(nn.Module):
 
     def initialization(self):
         nn.init.xavier_uniform_(self.fc1.weight,
-                                gain=nn.init.calculate_gain('leaky_relu'))
+                                gain=nn.init.calculate_gain('tanh'))
 
         nn.init.xavier_uniform_(self.fc2.weight,
-                                gain=nn.init.calculate_gain('leaky_relu'))
+                                gain=nn.init.calculate_gain('tanh'))
 
         nn.init.xavier_uniform_(self.fc3.weight,
-                                gain=nn.init.calculate_gain('leaky_relu'))
+                                gain=nn.init.calculate_gain('tanh'))
 
         nn.init.xavier_uniform_(self.mu.weight,
                                 gain=nn.init.calculate_gain('tanh'))
 
     def forward(self, state):
         x = self.fc1(state)
-        x = F.leaky_relu(x)
+        x = T.sigmoid(x)
         x = self.bn1(x)
 
         x = self.fc2(x)
-        x = F.leaky_relu(x)
+        x = T.sigmoid(x)
         x = self.bn2(x)
 
         x = self.fc3(x)
-        x = F.leaky_relu(x)
+        x = T.sigmoid(x)
         x = self.bn3(x)
 
         x = T.sigmoid(self.mu(x))
@@ -198,15 +198,15 @@ class DDPG(object):
 
         self.update_network_parameters(tau=0.8)
 
-    def choose_action_train(self, observation):
+    def choose_action_train(self, observation, episode, n_episode):
         if observation is not None:
             self.actor.eval()
             observation = T.tensor(observation,
                                    dtype=T.float).to(self.actor.device)
-            mu = self.actor(observation).to(self.actor.device)
+            mu = self.actor.forward(observation).to(self.actor.device)
             noise = T.tensor(self.noise(), dtype=T.float).to(self.actor.device)
             # print("Noise {}, Mu {}".format(noise, mu))
-            mu_prime = mu + noise
+            mu_prime = mu + ((n_episode-episode)/n_episode)*noise
             self.actor.train()
             return mu_prime.cpu().detach().numpy()
         return np.zeros((2, ))
@@ -216,7 +216,7 @@ class DDPG(object):
             self.actor.eval()
             observation = T.tensor(observation,
                                    dtype=T.float).to(self.actor.device)
-            mu = self.target_actor(observation).to(self.target_actor.device)
+            mu = self.target_actor.forward(observation).to(self.target_actor.device)
 
             return mu.cpu().detach().numpy()
         return np.zeros((2, ))
@@ -298,6 +298,8 @@ class DDPG(object):
         for name in actor_state_dict:
             actor_state_dict[name] = tau*actor_state_dict[name].clone() +\
                                      (1-tau)*target_actor_dict[name].clone()
+            
+        self.target_actor.load_state_dict(actor_state_dict)
 
     def init_models(self, lr_critic, lr_actor, input_dims, layer1_size,
                     layer2_size, layer3_size, n_actions, save_dir):

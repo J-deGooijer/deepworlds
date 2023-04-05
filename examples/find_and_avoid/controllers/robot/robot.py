@@ -1,6 +1,5 @@
 import numpy as np
-from deepbots.robots.controllers.robot_emitter_receiver_csv import \
-    RobotEmitterReceiverCSV
+from deepbots.robots.controllers.csv_robot import CSVRobot
 
 
 def normalize_to_range(value, min, max, new_min, new_max):
@@ -12,7 +11,9 @@ def normalize_to_range(value, min, max, new_min, new_max):
     return (new_max - new_min) / (max - min) * (value - max) + new_max
 
 
-class FindTargetRobot(RobotEmitterReceiverCSV):
+class FindTargetRobot(CSVRobot):
+    # self.wheeltest = [0,0]
+
     def __init__(self, n_rangefinders):
         super(FindTargetRobot, self).__init__()
         self.setup_rangefinders(n_rangefinders)
@@ -29,7 +30,14 @@ class FindTargetRobot(RobotEmitterReceiverCSV):
         gas = float(message[1])
         # Action 0 is turning
         wheel = float(message[0])
-
+        # print(wheel)
+        # if wheel < self.wheeltest[0]:
+        #     self.wheeltest[0] = wheel
+        # if wheel > self.wheeltest[1]:
+        #     self.wheeltest[1] = wheel
+        
+        # print(self.wheeltest)
+        
         # Mapping gas from [-1, 1] to [0, 4] to make robot always move forward
         gas = (gas+1)*2
         gas = np.clip(gas, 0, 4.0)
@@ -37,10 +45,12 @@ class FindTargetRobot(RobotEmitterReceiverCSV):
         # Mapping turning rate from [-1, 1] to [-2, 2]
         wheel *= 2
         wheel = np.clip(wheel, -2, 2)
+        # print(wheel)
 
         # Apply gas to both motor speeds, add turning rate to one, subtract from other
         self.motor_speeds[0] = gas + wheel
         self.motor_speeds[1] = gas - wheel
+        # print(self.motor_speeds)
 
         # Clip final motor speeds to [-4, 4] to be sure that motors get valid values
         self.motor_speeds = np.clip(self.motor_speeds, 0, 6)
@@ -56,13 +66,13 @@ class FindTargetRobot(RobotEmitterReceiverCSV):
                         ]  # 'ps0', 'ps1',...,'ps7'
 
         for i in range(self.n_rangefinders):
-            self.rangefinders.append(self.robot.getDevice(self.ps_names[i]))
+            self.rangefinders.append(self.getDevice(self.ps_names[i]))
             self.rangefinders[i].enable(self.timestep)
 
     def setup_motors(self):
         # Motor setup
-        self.left_motor = self.robot.getDevice('left wheel motor')
-        self.right_motor = self.robot.getDevice('right wheel motor')
+        self.left_motor = self.getDevice('left wheel motor')
+        self.right_motor = self.getDevice('right wheel motor')
         self._set_velocity(0.0, 0.0)
         self.motor_speeds = [0.0, 0.0]
     

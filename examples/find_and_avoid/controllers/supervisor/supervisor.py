@@ -1,7 +1,6 @@
 import gym
 import numpy as np
-from deepbots.supervisor.controllers.supervisor_emitter_receiver import \
-    SupervisorCSV
+from deepbots.supervisor.controllers.csv_supervisor_env import CSVSupervisorEnv
 from deepbots.supervisor.wrappers.keyboard_printer import KeyboardPrinter
 
 import utilities as utils
@@ -16,7 +15,7 @@ ACTION_MM = {'min': -1, 'max': 1}
 ANGLE_MM = {'min': -np.pi, 'max': np.pi}
 
 
-class FindTargetSupervisor(SupervisorCSV):
+class FindTargetSupervisor(CSVSupervisorEnv):
     def __init__(self, robot, target):
         super(FindTargetSupervisor, self).__init__(emitter_name='emitter',
                                                    receiver_name='receiver')
@@ -196,11 +195,11 @@ if __name__ == '__main__':
         
         first_iter = True
 
-        if score_history == [] or np.mean(score_history[-50:])<0.5 or score_history[-1]<0.65:
+        if score_history == [] or np.mean(score_history[-50:])<0.4 or score_history[-1]<0.65:
             print("================= TRAINING =================")
             while not done:
                 if (not first_iter):
-                    act = agent.choose_action_train(obs).tolist()
+                    act = agent.choose_action_train(obs, i, n_episode).tolist()
                 else:
                     first_iter = False
                     act = [0, 0]
@@ -213,6 +212,7 @@ if __name__ == '__main__':
                 obs = list(map(float, new_state))
         else:
             print("================= TESTING =================")
+            agent.save_models()
             while not done:
                 if (not first_iter):
                     act = agent.choose_action_test(obs).tolist()
@@ -220,7 +220,8 @@ if __name__ == '__main__':
                     first_iter = False
                     act = [0, 0]
                 
-                new_state, _, done, _ = supervisor_env.step(act)
+                new_state, reward, done, _ = supervisor_env.step(act)
+                score += reward
                 obs = list(map(float, new_state))
             
 
