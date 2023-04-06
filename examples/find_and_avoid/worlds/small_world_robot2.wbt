@@ -1,0 +1,74 @@
+#VRML_SIM R2023a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/factory/containers/protos/WoodenBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "../protos/SimpleRobot.proto"
+
+WorldInfo {
+  contactProperties [
+    ContactProperties {
+      material1 "wheel"
+    }
+    ContactProperties {
+      material1 "caster"
+      coulombFriction [
+        0
+      ]
+    }
+  ]
+}
+Viewpoint {
+  orientation -0.1887892858276811 -0.35065386902049045 0.9172788396652541 5.235044666690061
+  position -0.7351342738789757 1.038773960917717 0.738065224981776
+}
+WoodenBox {
+  translation -0.69 0.16 0.0700046
+  rotation 0.5773522691836299 -0.5773462691808325 -0.5773522691836299 2.09439
+  size 0.06 0.15 0.5
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  floorSize 0.7 0.7
+}
+DEF supervisor Robot {
+  children [
+    DEF emitter Emitter {
+      rotation -0.5773502691896258 -0.5773502691896258 -0.5773502691896258 2.0943951023931953
+    }
+    DEF receiver Receiver {
+      rotation -0.5773502691896258 -0.5773502691896258 -0.5773502691896258 2.0943951023931953
+    }
+  ]
+  name "supervisor"
+  controller "supervisor"
+  supervisor TRUE
+}
+DEF target Solid {
+  translation 0.26 -0.23 0.01
+  rotation 0 0 1 -1.5707953071795862
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+        }
+        texture ImageTexture {
+          url [
+            "https://avatars.githubusercontent.com/u/57842071?s=256"
+          ]
+        }
+      }
+      geometry Plane {
+        size 0.12 0.12
+      }
+    }
+  ]
+  name "target"
+}
+DEF robot SimpleRobot {
+  translation 0 0 0.03
+}
