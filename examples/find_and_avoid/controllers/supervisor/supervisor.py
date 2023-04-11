@@ -167,7 +167,7 @@ if __name__ == '__main__':
                 lr_critic=0.00025,
                 input_dims=[10],
                 gamma=0.99,
-                tau=0.001,
+                tau=0.01,
                 env=supervisor_env,
                 batch_size=256,
                 layer1_size=400,

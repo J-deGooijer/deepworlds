@@ -9,8 +9,8 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2022b/project
 WorldInfo {
 }
 Viewpoint {
-  orientation 0.021377973611688746 0.9990136217035759 -0.03891999351185088 0.8719584363520527
-  position -0.9248048883641294 0.2187041330780768 0.9427828576588821
+  orientation 0.00491133244049609 0.9999852598973844 -0.002314908555362656 1.611255357576865
+  position 0.014065035429165033 0.1118674035696411 1.9615782123485481
 }
 WoodenBox {
   translation -0.69 0.16 0.0700046
@@ -39,7 +39,7 @@ DEF supervisor Robot {
 }
 DEF robot E-puck {
   translation -0.26 0.27 0
-  rotation 0 0 1 -1.5707953071795862
+  rotation 0 0 -1 1.0472
   name "robot"
   controller "robot"
   emitter_channel 0
