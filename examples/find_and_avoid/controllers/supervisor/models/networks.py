@@ -213,7 +213,7 @@ class DDPG(object):
 
     def choose_action_test(self, observation):
         if observation is not None:
-            self.actor.eval()
+            self.target_actor.eval()
             observation = T.tensor(observation,
                                    dtype=T.float).to(self.actor.device)
             mu = self.target_actor(observation).to(self.target_actor.device)
